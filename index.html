@@ -1,1132 +1,224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>身体健康指标面板</title>
-  <style>
-    :root {
-      --bg: #070b12;
-      --panel: #121b27;
-      --panel-2: #182334;
-      --text: #edf3fb;
-      --muted: #96a5ba;
-      --line: #243246;
-      --accent: #8b5cf6;
-      --shadow: 0 18px 48px rgba(0,0,0,.32);
-      --radius: 20px;
-      --chip: #1c2838;
-    }
-
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-      background:
-        radial-gradient(circle at top, rgba(139,92,246,.18), transparent 28%),
-        linear-gradient(180deg, #0a1019 0%, #070b12 100%);
-      color: var(--text);
-      min-height: 100vh;
-    }
-
-    .app {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 14px 12px 84px;
-    }
-
-    .hero, .card {
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
-      border: 1px solid rgba(255,255,255,.06);
-      box-shadow: var(--shadow);
-      border-radius: var(--radius);
-      backdrop-filter: blur(12px);
-    }
-
-    .hero {
-      padding: 18px;
-      margin-bottom: 14px;
-    }
-
-    h1, h2, h3, p { margin: 0; }
-    .hero h1 { font-size: 27px; margin-bottom: 8px; }
-    .hero p { color: var(--muted); line-height: 1.65; }
-
-    .card { padding: 16px; }
-    .card h2 { font-size: 18px; margin-bottom: 12px; }
-
-    .section-tabs,
-    .chart-tabs,
-    .history-tabs {
-      display: flex;
-      gap: 8px;
-      flex-wrap: nowrap;
-      overflow-x: visible;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-
-    .section-tabs::-webkit-scrollbar,
-    .chart-tabs::-webkit-scrollbar,
-    .history-tabs::-webkit-scrollbar {
-      display: none;
-    }
-
-    .section-tabs {
-      margin: 14px 0;
-      position: sticky;
-      top: 10px;
-      z-index: 20;
-      padding: 10px 0 6px;
-      background: linear-gradient(180deg, rgba(7,11,18,.96), rgba(7,11,18,.82));
-      backdrop-filter: blur(10px);
-    }
-    .chart-tabs, .history-tabs { margin-bottom: 12px; }
-
-    .tab,
-    .section-tab,
-    .history-tab {
-      border: 1px solid var(--line);
-      background: var(--chip);
-      color: var(--text);
-      padding: 9px 12px;
-      border-radius: 999px;
-      cursor: pointer;
-      font-size: 13px;
-      white-space: nowrap;
-      flex: 0 0 auto;
-    }
-
-    .section-tab {
-      font-size: 14px;
-      font-weight: 700;
-      padding: 11px 8px;
-      box-shadow: 0 8px 22px rgba(0,0,0,.18);
-      flex: 1 1 0;
-      text-align: center;
-      font-size: 12px;
-    }
-
-    .tab,
-    .history-tab {
-      flex: 1 1 0;
-      text-align: center;
-    }
-
-    .tab.active,
-    .section-tab.active,
-    .history-tab.active {
-      background: linear-gradient(135deg, rgba(139,92,246,.28), rgba(91,140,255,.24));
-      border-color: rgba(139,92,246,.55);
-    }
-
-    .panel-hidden { display: none; }
-
-    .summary-grid,
-    .mini-grid,
-    .manual-grid,
-    .manual-shortcuts,
-    .actions {
-      display: grid;
-      gap: 12px;
-    }
-
-    .summary-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
-    .mini-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
-    .manual-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-    .manual-shortcuts { grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 12px; }
-    .actions { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 12px; }
-
-    .metric, .history-item, .subcard {
-      background: rgba(255,255,255,.02);
-      border: 1px solid rgba(255,255,255,.05);
-      border-radius: 16px;
-      padding: 15px;
-    }
-
-    .metric .label { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
-    .metric .value { font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
-    .metric .sub { margin-top: 8px; font-size: 13px; color: var(--muted); line-height: 1.6; }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-
-    .mild { background: rgba(34,197,94,.14); color: #84f0ae; }
-    .moderate { background: rgba(245,158,11,.16); color: #ffd17c; }
-    .high { background: rgba(239,68,68,.16); color: #ff9898; }
-
-    .trend-up { color: #84f0ae; }
-    .trend-down { color: #ff9898; }
-    .trend-flat { color: #d8e2ef; }
-
-    .progress-wrap {
-      height: 12px;
-      border-radius: 999px;
-      background: #0a1018;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,.06);
-      margin: 14px 0 10px;
-    }
-
-    .progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #22c55e 0%, #f59e0b 55%, #ef4444 100%);
-      transition: width .28s ease;
-    }
-
-    .autophagy-legend {
-      display: flex;
-      justify-content: space-between;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .ring-wrap {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }
-
-    .ring-box {
-      width: 118px;
-      height: 118px;
-      position: relative;
-      flex: 0 0 auto;
-    }
-
-    .ring-box svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-    .ring-box .ring-bg { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 10; }
-    .ring-box .ring-bar { fill: none; stroke: url(#ringGradient); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset .28s ease; }
-
-    .ring-center {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      text-align: center;
-      font-weight: 800;
-      font-size: 22px;
-    }
-
-    .ring-center small {
-      display: block;
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 600;
-      margin-top: 2px;
-    }
-
-    .footnote {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.7;
-      margin-top: 10px;
-    }
-
-    .uploader {
-      border: 1px dashed rgba(139,92,246,.45);
-      background: rgba(139,92,246,.07);
-      border-radius: 16px;
-      padding: 14px;
-      margin-bottom: 14px;
-    }
-
-    label.small {
-      display: block;
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    input, button {
-      width: 100%;
-      border: 1px solid var(--line);
-      background: var(--panel-2);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 14px;
-      outline: none;
-    }
-
-    input:focus {
-      border-color: rgba(139,92,246,.7);
-      box-shadow: 0 0 0 3px rgba(139,92,246,.16);
-    }
-
-    button {
-      background: linear-gradient(135deg, var(--accent), #5b8cff);
-      border: 0;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    button.secondary {
-      background: var(--chip);
-      border: 1px solid var(--line);
-    }
-
-    .canvas-card canvas,
-    #homeAutophagyCanvas {
-      width: 100%;
-      height: 240px;
-      display: block;
-      background: rgba(255,255,255,.015);
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.05);
-    }
-
-    .history-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .history-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .history-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .chip {
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: var(--chip);
-      color: var(--muted);
-      border: 1px solid var(--line);
-    }
-
-    .image-list {
-      margin-top: 10px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .image-list img {
-      width: 72px;
-      height: 104px;
-      object-fit: cover;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .empty {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.7;
-      padding: 8px 2px;
-    }
-
-    @media (max-width: 780px) {
-      .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-    }
-
-    @media (max-width: 640px) {
-      .app { padding: 12px 10px 72px; }
-      .hero { padding: 16px; }
-      .hero h1 { font-size: 24px; }
-      .card { padding: 14px; }
-      .manual-grid,
-      .manual-shortcuts,
-      .actions { grid-template-columns: 1fr; }
-      .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .mini-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
-      .manual-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .ring-wrap {
-        flex-wrap: nowrap;
-        align-items: center;
-      }
-      .ring-wrap > div:last-child {
-        min-width: 0 !important;
-        flex: 1 1 auto;
-      }
-      .metric .value { font-size: 24px; }
-      .canvas-card canvas,
-      #homeAutophagyCanvas { height: 220px; }
-      .section-tab { font-size: 11px; padding: 10px 6px; }
-      .tab,
-      .history-tab { font-size: 12px; padding: 10px 6px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="app">
-    <section class="hero">
-      <h1>身体健康指标面板</h1>
-      <p>首页默认显示细胞自噬情况，并直接展示最近 14 天的细胞自噬指数曲线。其他功能通过标签切换查看。</p>
-    </section>
-
-    <section class="card" id="autophagyPanel">
-      <h2>细胞自噬情况</h2>
-      <div class="summary-grid" style="margin-bottom:12px;">
-        <div class="metric">
-          <div class="label">细胞自噬指数</div>
-          <div class="value" id="autophagyScore">--</div>
-          <div class="sub" id="autophagyLevel">等待数据</div>
-        </div>
-        <div class="metric">
-          <div class="label">体脂率</div>
-          <div class="value" id="fatNow">--</div>
-          <div class="sub" id="fatDelta">--</div>
-        </div>
-        <div class="metric">
-          <div class="label">肌肉率</div>
-          <div class="value" id="muscleNow">--</div>
-          <div class="sub" id="muscleDelta">--</div>
-        </div>
-        <div class="metric">
-          <div class="label">蛋白质摄入</div>
-          <div class="value" id="proteinNow">--</div>
-          <div class="sub" id="proteinDelta">--</div>
-        </div>
-      </div>
-
-      <div class="metric">
-        <div class="label">最近一天判断 <span id="autophagyBadge" class="badge mild">--</span></div>
-        <div class="ring-wrap">
-          <div class="ring-box">
-            <svg viewBox="0 0 120 120" aria-hidden="true">
-              <defs>
-                <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#22c55e" />
-                  <stop offset="55%" stop-color="#f59e0b" />
-                  <stop offset="100%" stop-color="#ef4444" />
-                </linearGradient>
-              </defs>
-              <circle class="ring-bg" cx="60" cy="60" r="48"></circle>
-              <circle id="ringBar" class="ring-bar" cx="60" cy="60" r="48"></circle>
-            </svg>
-            <div class="ring-center"><span id="autophagyPercent">--</span><small>自噬 %</small></div>
-          </div>
-          <div style="flex:1; min-width:220px;">
-            <div class="progress-wrap"><div class="progress-bar" id="autophagyBar"></div></div>
-            <div class="autophagy-legend"><span>轻度</span><span>中度</span><span>重度</span></div>
-            <div class="sub" id="autophagyText" style="margin-top:12px; color:var(--muted); line-height:1.7;">等待你录入当天数据。</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mini-grid" style="margin-top:12px;">
-        <div class="metric">
-          <div class="label">14天均值</div>
-          <div class="value" id="autophagyAvg">--</div>
-          <div class="sub">最近 14 天平均自噬指数</div>
-        </div>
-        <div class="metric">
-          <div class="label">估算空腹时长</div>
-          <div class="value" id="fastingHours">--</div>
-          <div class="sub">由 24 - 进食窗口 得出</div>
-        </div>
-        <div class="metric">
-          <div class="label">净能量平衡</div>
-          <div class="value" id="energyNow">--</div>
-          <div class="sub">负值通常更有利于触发自噬</div>
-        </div>
-      </div>
-
-      <div class="metric" style="margin-top:12px;">
-        <div class="label">14天趋势图 · 细胞自噬指数</div>
-        <canvas id="homeAutophagyCanvas" width="900" height="220"></canvas>
-        <div class="footnote">这里直接显示最近 14 天的细胞自噬指数趋势，方便在首页快速看变化。</div>
-      </div>
-    </section>
-
-    <div class="section-tabs" id="sectionTabs">
-      <button class="section-tab active" data-panel="none">只看细胞自噬</button>
-      <button class="section-tab" data-panel="recordPanel">新增当天记录</button>
-      <button class="section-tab" data-panel="trendPanel">14天趋势图</button>
-      <button class="section-tab" data-panel="guidePanel">指标说明</button>
-      <button class="section-tab" data-panel="historyPanel">历史记录</button>
-    </div>
-
-    <section class="card panel-hidden" id="recordPanel">
-      <h2>新增当天记录</h2>
-      <div class="uploader">
-        <label class="small">上传当天多张截图（仅保存在当前浏览器本地）</label>
-        <input id="imageInput" type="file" accept="image/*" multiple />
-        <div class="image-list" id="imagePreview"></div>
-        <div class="footnote">当前版本支持多图留档 + 手动录入关键数字。</div>
-      </div>
-
-      <div class="manual-shortcuts">
-        <button class="secondary" id="fillSampleBtn">填入 4 月 30 日示例</button>
-        <button class="secondary" id="loadSampleBtn">载入两周示例数据</button>
-        <button class="secondary" id="fillTodayBtn">日期切到今天</button>
-      </div>
-
-      <div class="manual-grid" style="margin-top:12px;">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>细胞自噬健康仪表盘</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
         <div>
-          <label class="small">日期</label>
-          <input id="date" type="date" />
+          <p class="eyebrow">今日身体状态</p>
+          <h1>细胞自噬追踪</h1>
+          <p class="hero-copy">基于空腹时长、能量缺口、摄入量和身体组成做趋势估算。结果用于个人记录，不替代医疗判断。</p>
         </div>
-        <div>
-          <label class="small">体重（斤）</label>
-          <input id="weight" type="number" step="0.1" />
-        </div>
-        <div>
-          <label class="small">体脂率（%）</label>
-          <input id="bodyFat" type="number" step="0.1" />
-        </div>
-        <div>
-          <label class="small">肌肉率（%）</label>
-          <input id="muscleRate" type="number" step="0.1" />
-        </div>
-        <div>
-          <label class="small">蛋白质摄入量（克）</label>
-          <input id="proteinIntake" type="number" step="1" />
-        </div>
-        <div>
-          <label class="small">蛋白质含量（%）</label>
-          <input id="bodyProteinRate" type="number" step="0.1" />
-        </div>
-        <div>
-          <label class="small">BMR（千卡）</label>
-          <input id="bmr" type="number" step="1" />
-        </div>
-        <div>
-          <label class="small">净能量平衡（千卡）</label>
-          <input id="energyBalance" type="number" step="1" />
-        </div>
-        <div>
-          <label class="small">进食窗口（小时）</label>
-          <input id="feedingWindow" type="number" step="0.1" value="8" />
-        </div>
-        <div>
-          <label class="small">内脏脂肪等级</label>
-          <input id="visceralFat" type="number" step="1" />
-        </div>
-        <div>
-          <label class="small">BMI</label>
-          <input id="bmi" type="number" step="0.1" />
-        </div>
-        <div>
-          <label class="small">备注</label>
-          <input id="note" type="text" placeholder="比如：训练日 / 熬夜 / 低碳日" />
-        </div>
-      </div>
+        <button class="icon-button" id="resetDemo" type="button" aria-label="恢复截图示例数据" title="恢复截图示例数据">
+          <span aria-hidden="true">↺</span>
+        </button>
+      </section>
 
-      <div class="actions">
-        <button id="saveBtn">保存当天记录并分析</button>
-        <button class="secondary" id="exportBtn">导出历史 JSON</button>
-        <button class="secondary" id="clearBtn">清空所有历史</button>
-      </div>
-
-      <div class="footnote">“细胞自噬”这里仍然是趋势估算值，不是医疗检测值。</div>
-    </section>
-
-    <section class="card canvas-card panel-hidden" id="trendPanel">
-      <h2>14天趋势图</h2>
-      <div class="chart-tabs" id="chartTabs">
-        <button class="tab active" data-key="bodyFat">体脂率</button>
-        <button class="tab" data-key="muscleRate">肌肉率</button>
-        <button class="tab" data-key="proteinIntake">蛋白质摄入量</button>
-        <button class="tab" data-key="feedingWindow">进食窗口（小时）</button>
-      </div>
-      <canvas id="chartCanvas" width="900" height="240"></canvas>
-      <div class="footnote" id="chartDescription">体脂率：更适合看最近 14 天整体变化，避免只盯单日波动。</div>
-    </section>
-
-    <section class="card panel-hidden" id="guidePanel">
-      <h2>指标说明</h2>
-      <div class="subcard" id="guideContent"></div>
-    </section>
-
-    <section class="card panel-hidden" id="historyPanel">
-      <h2>历史记录</h2>
-      <div id="history" class="history-list"></div>
-    </section>
-  </div>
-
-  <script>
-    const STORAGE_KEY = 'health-dashboard-records-v4';
-    const SAMPLE_DATA = [
-      { date: '2026-04-17', weight: 130.8, bodyFat: 22.0, muscleRate: 33.7, proteinIntake: 95, bodyProteinRate: 16.0, bmr: 1512, energyBalance: -80, feedingWindow: 11, visceralFat: 6, bmi: 21.9, note: '普通日', images: [] },
-      { date: '2026-04-18', weight: 130.5, bodyFat: 21.9, muscleRate: 33.8, proteinIntake: 99, bodyProteinRate: 16.0, bmr: 1513, energyBalance: -150, feedingWindow: 10, visceralFat: 6, bmi: 21.9, note: '轻活动', images: [] },
-      { date: '2026-04-19', weight: 130.4, bodyFat: 21.9, muscleRate: 33.8, proteinIntake: 101, bodyProteinRate: 16.1, bmr: 1513, energyBalance: -130, feedingWindow: 10.5, visceralFat: 6, bmi: 21.8, note: '恢复日', images: [] },
-      { date: '2026-04-20', weight: 130.1, bodyFat: 21.8, muscleRate: 33.8, proteinIntake: 104, bodyProteinRate: 16.1, bmr: 1514, energyBalance: -210, feedingWindow: 9.5, visceralFat: 6, bmi: 21.8, note: '普通日', images: [] },
-      { date: '2026-04-21', weight: 130.2, bodyFat: 21.8, muscleRate: 33.8, proteinIntake: 107, bodyProteinRate: 16.1, bmr: 1514, energyBalance: -180, feedingWindow: 9.5, visceralFat: 6, bmi: 21.8, note: '步行较多', images: [] },
-      { date: '2026-04-22', weight: 130.1, bodyFat: 21.8, muscleRate: 33.8, proteinIntake: 103, bodyProteinRate: 16.1, bmr: 1514, energyBalance: -220, feedingWindow: 9, visceralFat: 6, bmi: 21.8, note: '轻赤字', images: [] },
-      { date: '2026-04-23', weight: 130.0, bodyFat: 21.8, muscleRate: 33.8, proteinIntake: 104, bodyProteinRate: 16.1, bmr: 1514, energyBalance: -190, feedingWindow: 9.5, visceralFat: 6, bmi: 21.7, note: '普通日', images: [] },
-      { date: '2026-04-24', weight: 130.0, bodyFat: 21.8, muscleRate: 33.8, proteinIntake: 106, bodyProteinRate: 16.1, bmr: 1514, energyBalance: -180, feedingWindow: 10, visceralFat: 6, bmi: 21.7, note: '普通日', images: [] },
-      { date: '2026-04-25', weight: 129.7, bodyFat: 21.7, muscleRate: 33.9, proteinIntake: 110, bodyProteinRate: 16.2, bmr: 1515, energyBalance: -230, feedingWindow: 9, visceralFat: 6, bmi: 21.7, note: '步行较多', images: [] },
-      { date: '2026-04-26', weight: 130.4, bodyFat: 21.8, muscleRate: 33.8, proteinIntake: 105, bodyProteinRate: 16.1, bmr: 1513, energyBalance: -120, feedingWindow: 10.5, visceralFat: 6, bmi: 21.8, note: '聚餐', images: [] },
-      { date: '2026-04-27', weight: 129.3, bodyFat: 21.7, muscleRate: 34.0, proteinIntake: 98, bodyProteinRate: 16.2, bmr: 1516, energyBalance: -320, feedingWindow: 8, visceralFat: 6, bmi: 21.6, note: '低碳日', images: [] },
-      { date: '2026-04-28', weight: 129.2, bodyFat: 21.6, muscleRate: 34.0, proteinIntake: 102, bodyProteinRate: 16.2, bmr: 1516, energyBalance: -280, feedingWindow: 8.5, visceralFat: 6, bmi: 21.6, note: '训练日', images: [] },
-      { date: '2026-04-29', weight: 129.4, bodyFat: 21.7, muscleRate: 34.0, proteinIntake: 108, bodyProteinRate: 16.2, bmr: 1516, energyBalance: -140, feedingWindow: 9, visceralFat: 6, bmi: 21.6, note: '恢复日', images: [] },
-      { date: '2026-04-30', weight: 129.2, bodyFat: 21.6, muscleRate: 34.0, proteinIntake: 113, bodyProteinRate: 16.3, bmr: 1516, energyBalance: -299, feedingWindow: 8, visceralFat: 6, bmi: 21.6, note: '来自截图示例', images: [] }
-    ];
-
-    const chartMeta = {
-      bodyFat: { color: '#f59e0b', desc: '体脂率：更适合看最近 14 天整体变化，避免只盯单日波动。' },
-      muscleRate: { color: '#22c55e', desc: '肌肉率：如果在赤字期连续下降，说明恢复或蛋白摄入可能需要调整。' },
-      proteinIntake: { color: '#60a5fa', desc: '蛋白质摄入量：与训练、恢复和保肌更相关，也会轻度影响自噬倾向。' },
-      feedingWindow: { color: '#f472b6', desc: '进食窗口（小时）：窗口越短，通常越容易拉长空腹时间，更利于提升自噬倾向。' }
-    };
-
-    const state = {
-      records: loadRecords(),
-      activeChart: 'bodyFat',
-      activePanel: 'none',
-      pendingImages: [],
-      pendingImageMetas: []
-    };
-
-    const $ = (id) => document.getElementById(id);
-    const ringCircumference = 2 * Math.PI * 48;
-
-    function loadRecords() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      } catch {
-        return [];
-      }
-    }
-
-    function saveRecords() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
-    }
-
-    function hasMeaningfulMetric(record) {
-      return ['weight', 'bodyFat', 'muscleRate', 'proteinIntake', 'bodyProteinRate', 'bmr', 'energyBalance', 'feedingWindow', 'visceralFat', 'bmi']
-        .some((key) => Number.isFinite(Number(record[key])) && Number(record[key]) !== 0);
-    }
-
-    function sortRecords(records) {
-      return [...records].sort((a, b) => a.date.localeCompare(b.date));
-    }
-
-    function getRecent(records, count = 14) {
-      return sortRecords(records).slice(-count);
-    }
-
-    function toNum(v) {
-      const n = parseFloat(v);
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    function avg(arr) {
-      return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-    }
-
-    function computeAutophagy(record) {
-      const feedingWindow = Math.max(1, toNum(record.feedingWindow || 8));
-      const fastingHours = Math.max(0, 24 - feedingWindow);
-      const deficit = Math.max(0, -toNum(record.energyBalance));
-      const bodyFat = toNum(record.bodyFat);
-      const protein = toNum(record.proteinIntake);
-      const bmr = toNum(record.bmr);
-      const visceralFat = toNum(record.visceralFat);
-      const proteinDensity = bmr ? (protein * 4) / bmr : 0;
-
-      let score = 0;
-      score += Math.min(42, Math.max(0, (fastingHours - 10) * 4.0));
-      score += Math.min(28, deficit / 15);
-      score += Math.max(0, Math.min(12, (24 - bodyFat) * 1.05));
-      score += Math.max(0, Math.min(6, (8 - visceralFat) * 1.2));
-      score -= Math.min(20, Math.max(0, proteinDensity - 0.18) * 100);
-      score = Math.max(0, Math.min(100, score));
-
-      let level = '轻度';
-      let badgeClass = 'mild';
-      if (score >= 70) { level = '重度'; badgeClass = 'high'; }
-      else if (score >= 40) { level = '中度'; badgeClass = 'moderate'; }
-
-      return { score: Math.round(score), level, badgeClass, fastingHours: Number(fastingHours.toFixed(1)) };
-    }
-
-    function calcDelta(records, key) {
-      const recent = getRecent(records, 2);
-      if (recent.length < 2) return null;
-      return toNum(recent[1][key]) - toNum(recent[0][key]);
-    }
-
-    function trendText(delta, suffix = '') {
-      if (delta === null) return '暂无对比';
-      if (Math.abs(delta) < 0.01) return '基本持平';
-      const arrow = delta > 0 ? '↑' : '↓';
-      return `${arrow} ${Math.abs(delta).toFixed(1)}${suffix}`;
-    }
-
-    function setMetric(idNow, idDelta, value, suffix, delta) {
-      $(idNow).textContent = value !== undefined && value !== null ? `${value}${suffix}` : '--';
-      const el = $(idDelta);
-      el.textContent = trendText(delta, suffix);
-      el.className = 'sub ' + (delta === null ? '' : delta > 0 ? 'trend-up' : delta < 0 ? 'trend-down' : 'trend-flat');
-    }
-
-    function buildAutophagyDescription(record, auto, avgScore) {
-      const deficit = toNum(record.energyBalance);
-      const protein = toNum(record.proteinIntake);
-      const lines = [];
-      lines.push(`今天估算自噬指数为 ${auto.score} 分，属于${auto.level}。`);
-      if (auto.fastingHours >= 16) lines.push('空腹时长已经进入更容易触发自噬的区间。');
-      else if (auto.fastingHours >= 14) lines.push('空腹时长对自噬有帮助，但还没进入更强触发区间。');
-      else lines.push('空腹时长偏短，所以自噬倾向不会特别高。');
-      if (deficit <= -250) lines.push('当天存在较明显热量赤字，会把自噬倾向往上推。');
-      else if (deficit <= -120) lines.push('当天有一定热量赤字，属于温和促进。');
-      else lines.push('当天更偏向维持或恢复。');
-      if (protein >= 110) lines.push('蛋白质摄入偏高，更利于保肌恢复，但通常会轻度压低自噬分值。');
-      lines.push(`最近 14 天平均指数为 ${avgScore} 分。重点建议看连续趋势。`);
-      return lines.join(' ');
-    }
-
-    function drawSmoothPath(ctx, points, closeToBottom, bottomY) {
-      if (!points.length) return;
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 0; i < points.length - 1; i++) {
-        const p0 = points[i === 0 ? i : i - 1];
-        const p1 = points[i];
-        const p2 = points[i + 1];
-        const p3 = points[i + 2] || p2;
-        const cp1x = p1.x + (p2.x - p0.x) / 6;
-        const cp1y = p1.y + (p2.y - p0.y) / 6;
-        const cp2x = p2.x - (p3.x - p1.x) / 6;
-        const cp2y = p2.y - (p3.y - p1.y) / 6;
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-      }
-      if (closeToBottom) {
-        ctx.lineTo(points[points.length - 1].x, bottomY);
-        ctx.lineTo(points[0].x, bottomY);
-        ctx.closePath();
-      }
-    }
-
-    function drawLineChart(canvasId, data, color, yFormatter = (v) => v.toFixed(1)) {
-      const canvas = $(canvasId);
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#0d1420';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      if (!data.length) return;
-
-      const pad = { left: 52, right: 20, top: 20, bottom: 34 };
-      const values = data.map(d => d.value);
-      let min = Math.min(...values);
-      let max = Math.max(...values);
-      if (min === max) { min -= 1; max += 1; }
-      const range = Math.max(1, max - min);
-
-      ctx.strokeStyle = 'rgba(255,255,255,.08)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 4; i++) {
-        const y = pad.top + ((canvas.height - pad.top - pad.bottom) / 3) * i;
-        ctx.beginPath();
-        ctx.moveTo(pad.left, y);
-        ctx.lineTo(canvas.width - pad.right, y);
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = '#97a3b6';
-      ctx.font = '12px sans-serif';
-      for (let i = 0; i < 4; i++) {
-        const v = max - (range / 3) * i;
-        const y = pad.top + ((canvas.height - pad.top - pad.bottom) / 3) * i + 4;
-        ctx.fillText(yFormatter(v), 8, y);
-      }
-
-      const points = data.map((d, index) => {
-        const x = pad.left + ((canvas.width - pad.left - pad.right) / Math.max(1, data.length - 1)) * index;
-        const y = pad.top + (max - d.value) / range * (canvas.height - pad.top - pad.bottom);
-        return { ...d, x, y };
-      });
-
-      const gradient = ctx.createLinearGradient(0, pad.top, 0, canvas.height - pad.bottom);
-      gradient.addColorStop(0, color + '55');
-      gradient.addColorStop(1, color + '00');
-
-      drawSmoothPath(ctx, points, true, canvas.height - pad.bottom);
-      ctx.fillStyle = gradient;
-      ctx.fill();
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      drawSmoothPath(ctx, points, false, canvas.height - pad.bottom);
-      ctx.stroke();
-
-      ctx.fillStyle = color;
-      points.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      ctx.fillStyle = '#d6deea';
-      points.forEach((p, i) => {
-        if (i % 2 === 0 || data.length <= 8) ctx.fillText(p.date, p.x - 14, canvas.height - 10);
-      });
-    }
-
-    function renderSummary() {
-      const recent = getRecent(state.records);
-      const last = recent[recent.length - 1];
-      if (!last) return;
-      const auto = computeAutophagy(last);
-      const avgScore = recent.length ? Math.round(avg(recent.map(r => computeAutophagy(r).score))) : 0;
-
-      $('autophagyScore').textContent = auto.score;
-      $('autophagyLevel').textContent = `${auto.level} · 空腹约 ${auto.fastingHours} 小时`;
-      $('autophagyPercent').textContent = auto.score;
-      $('autophagyBar').style.width = `${auto.score}%`;
-      $('autophagyBadge').textContent = auto.level;
-      $('autophagyBadge').className = `badge ${auto.badgeClass}`;
-      $('autophagyAvg').textContent = avgScore;
-      $('fastingHours').textContent = `${auto.fastingHours}h`;
-      $('energyNow').textContent = `${toNum(last.energyBalance)} kcal`;
-      $('autophagyText').textContent = buildAutophagyDescription(last, auto, avgScore);
-
-      const ring = $('ringBar');
-      ring.style.strokeDasharray = `${ringCircumference}`;
-      ring.style.strokeDashoffset = `${ringCircumference * (1 - auto.score / 100)}`;
-
-      setMetric('fatNow', 'fatDelta', toNum(last.bodyFat).toFixed(1), '%', calcDelta(state.records, 'bodyFat'));
-      setMetric('muscleNow', 'muscleDelta', toNum(last.muscleRate).toFixed(1), '%', calcDelta(state.records, 'muscleRate'));
-      setMetric('proteinNow', 'proteinDelta', Math.round(toNum(last.proteinIntake)), 'g', calcDelta(state.records, 'proteinIntake'));
-    }
-
-    function describeTrend(records, key) {
-      const recent = getRecent(records, 14);
-      if (recent.length < 2) return '数据还不够，至少再积累 2 天记录后，趋势分析会更可靠。';
-      const values = recent.map(r => toNum(r[key]));
-      const first = values[0];
-      const last = values[values.length - 1];
-      const delta = last - first;
-      const avgValue = avg(values);
-      const labelMap = {
-        bodyFat: '体脂率',
-        muscleRate: '肌肉率',
-        proteinIntake: '蛋白质摄入量',
-        energyBalance: '净能量平衡',
-        feedingWindow: '进食窗口'
-      };
-      const name = labelMap[key] || key;
-
-      if (key === 'bodyFat') {
-        if (delta <= -0.3) return `${name} 近 14 天整体下降 ${Math.abs(delta).toFixed(1)}%，说明减脂方向是有效的。当前均值约 ${avgValue.toFixed(1)}%，建议继续看连续两周而不是单日波动。`;
-        if (delta >= 0.3) return `${name} 近 14 天回升 ${delta.toFixed(1)}%，可能和饮食放松、补水、训练后浮动有关。建议结合净能量平衡与进食窗口一起看。`;
-        return `${name} 近 14 天基本平稳，说明当前阶段更像维持期。若目标是继续降脂，需要制造更稳定的轻赤字。`;
-      }
-
-      if (key === 'muscleRate') {
-        if (delta >= 0.2) return `${name} 近 14 天上升 ${delta.toFixed(1)}%，说明保肌状态不错，训练恢复和蛋白摄入整体是合格的。`;
-        if (delta <= -0.2) return `${name} 近 14 天下滑 ${Math.abs(delta).toFixed(1)}%，要留意热量赤字是否过大，或蛋白质、睡眠和力量训练是否不足。`;
-        return `${name} 近 14 天大体持平，这是减脂期里相对理想的表现，说明你没有明显掉肌肉。`;
-      }
-
-      if (key === 'proteinIntake') {
-        if (avgValue >= 105) return `${name} 近 14 天均值约 ${avgValue.toFixed(0)}g，整体偏充足，有利于保肌和恢复。若想兼顾自噬，建议避免过晚集中大量摄入。`;
-        if (avgValue >= 90) return `${name} 近 14 天均值约 ${avgValue.toFixed(0)}g，属于中等水平，基本够用，但在训练日可能还可以再稳一点。`;
-        return `${name} 近 14 天均值只有 ${avgValue.toFixed(0)}g，偏低，减脂时可能不利于保肌，建议优先提高到更稳定的水平。`;
-      }
-
-      if (key === 'energyBalance') {
-        if (avgValue <= -220) return `${name} 近 14 天平均约 ${avgValue.toFixed(0)} kcal，属于比较明确的负平衡，会推动减脂和自噬，但也要防止赤字过大影响恢复。`;
-        if (avgValue <= -100) return `${name} 近 14 天平均约 ${avgValue.toFixed(0)} kcal，属于温和赤字，通常更容易长期坚持。`;
-        return `${name} 近 14 天平均约 ${avgValue.toFixed(0)} kcal，更接近维持状态。如果你想继续降脂，赤字可能还不够稳定。`;
-      }
-
-      if (key === 'feedingWindow') {
-        if (avgValue <= 8.5) return `${name} 近 14 天平均约 ${avgValue.toFixed(1)} 小时，窗口较短，空腹时长通常更有利于提升自噬倾向。`;
-        if (avgValue <= 10) return `${name} 近 14 天平均约 ${avgValue.toFixed(1)} 小时，属于中等水平，对自噬有帮助，但力度不算特别强。`;
-        return `${name} 近 14 天平均约 ${avgValue.toFixed(1)} 小时，窗口偏长，因此空腹刺激相对有限。若想提高自噬，建议逐步缩短。`;
-      }
-
-      return `${name} 近 14 天变化 ${delta.toFixed(1)}，均值约 ${avgValue.toFixed(1)}。`;
-    }
-
-    function renderGuide() {
-      const recent = getRecent(state.records, 14);
-      if (!recent.length) {
-        $('guideContent').innerHTML = '<div class="footnote" style="margin-top:0; font-size:13px;">还没有可分析的数据。</div>';
-        return;
-      }
-
-      $('guideContent').innerHTML = `
-        <div class="footnote" style="margin-top:0; font-size:13px;">
-          <strong>体脂率：</strong>${describeTrend(state.records, 'bodyFat')}<br><br>
-          <strong>肌肉率：</strong>${describeTrend(state.records, 'muscleRate')}<br><br>
-          <strong>蛋白质摄入量：</strong>${describeTrend(state.records, 'proteinIntake')}<br><br>
-          <strong>净能量平衡（千卡）：</strong>${describeTrend(state.records, 'energyBalance')}<br><br>
-          <strong>进食窗口（小时）：</strong>${describeTrend(state.records, 'feedingWindow')}
-        </div>
-      `;
-    }
-
-    function renderHistoryList() {
-      const wrap = $('history');
-      const records = sortRecords(state.records).reverse();
-      if (!records.length) {
-        wrap.innerHTML = '<div class="empty">还没有历史记录。</div>';
-        return;
-      }
-      wrap.innerHTML = records.map((r) => {
-        const auto = computeAutophagy(r);
-        const images = (r.images || []).map(src => `<img src="${src}" alt="截图" />`).join('');
-        return `
-          <div class="history-item">
-            <div class="history-head">
-              <strong>${r.date}</strong>
-              <span class="badge ${auto.badgeClass}">${auto.level} ${auto.score}%</span>
+      <section class="today-grid">
+        <article class="autophagy-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="label">当日细胞自噬</p>
+              <h2 id="todayStage">轻度</h2>
             </div>
-            <div class="history-tags">
-              <span class="chip">体重 ${toNum(r.weight).toFixed(1)} 斤</span>
-              <span class="chip">BMI ${toNum(r.bmi).toFixed(1)}</span>
-              <span class="chip">体脂 ${toNum(r.bodyFat).toFixed(1)}%</span>
-              <span class="chip">肌肉 ${toNum(r.muscleRate).toFixed(1)}%</span>
-              <span class="chip">蛋白 ${Math.round(toNum(r.proteinIntake))}g</span>
-              <span class="chip">内脏脂肪 ${toNum(r.visceralFat).toFixed(0)}</span>
-              <span class="chip">能量 ${toNum(r.energyBalance)} kcal</span>
-            </div>
-            ${r.note ? `<div class="footnote">备注：${r.note}</div>` : ''}
-            ${images ? `<div class="image-list">${images}</div>` : ''}
+            <span class="date-pill" id="todayDate">2026-05-02</span>
           </div>
-        `;
-      }).join('');
-    }
+          <div class="gauge-wrap">
+            <canvas id="gaugeCanvas" width="360" height="220" aria-label="细胞自噬强度仪表"></canvas>
+            <div class="gauge-copy">
+              <strong id="todayScore">42</strong>
+              <span>综合分</span>
+            </div>
+          </div>
+          <div class="mini-facts">
+            <div>
+              <span>空腹时长</span>
+              <strong id="fastingText">12小时11分</strong>
+            </div>
+            <div>
+              <span>能量平衡</span>
+              <strong id="energyText">-533 千卡</strong>
+            </div>
+            <div>
+              <span>七日均值</span>
+              <strong id="avgScoreText">--</strong>
+            </div>
+          </div>
+          <p class="insight" id="stageInsight"></p>
+        </article>
 
-    function renderHomeAutophagyChart() {
-      const data = getRecent(state.records, 14).map(r => ({
-        date: r.date.slice(5),
-        value: computeAutophagy(r).score
-      }));
-      drawLineChart('homeAutophagyCanvas', data, '#a78bfa', (v) => v.toFixed(1));
-    }
+        <article class="upload-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="label">上传与录入</p>
+              <h2>添加新截图</h2>
+            </div>
+          </div>
+          <label class="drop-zone" for="imageUpload">
+            <input id="imageUpload" type="file" accept="image/*" multiple />
+            <span class="drop-icon">＋</span>
+            <span>一次上传多张健康截图</span>
+          </label>
+          <button class="secondary-button full-button" id="ocrButton" type="button">尝试从截图识别数据</button>
+          <div class="preview-strip" id="previewStrip"></div>
+          <p class="muted" id="ocrStatus">上传后可参考预览，也可以用 OCR 辅助识别；浏览器端不会把图片发到自建服务器。</p>
+        </article>
+      </section>
 
-    function renderChart() {
-      const data = getRecent(state.records, 14).map(r => ({
-        date: r.date.slice(5),
-        value: toNum(r[state.activeChart])
-      }));
-      const meta = chartMeta[state.activeChart];
-      drawLineChart('chartCanvas', data, meta.color, (v) => v.toFixed(state.activeChart === 'proteinIntake' ? 0 : 1));
-      $('chartDescription').textContent = meta.desc;
-    }
+      <section class="metric-row" aria-label="核心指标">
+        <article class="metric-card">
+          <span class="metric-icon fat">%</span>
+          <p>体脂率</p>
+          <strong id="fatNow">21.4%</strong>
+          <small id="fatNote">较上一条下降 0.3%</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon muscle">⌁</span>
+          <p>肌肉率</p>
+          <strong id="muscleNow">34.1%</strong>
+          <small id="muscleNote">维持稳定</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon protein">P</span>
+          <p>蛋白质摄入</p>
+          <strong id="proteinNow">35g</strong>
+          <small id="proteinNote">占摄入约 26%</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon cell">◎</span>
+          <p>细胞内活动分析</p>
+          <strong id="cellNow">轻度</strong>
+          <small id="cellNote">脂肪动员上升</small>
+        </article>
+      </section>
 
-    function extractNumbersFromText(text) {
-      const src = String(text || '');
-      const match = (patterns) => {
-        for (const pattern of patterns) {
-          const found = src.match(pattern);
-          if (found) return parseFloat(found[1]);
-        }
-        return undefined;
-      };
+      <section class="formula-panel">
+        <div class="section-title">
+          <div>
+            <p class="label">计算模型</p>
+            <h2>ASI 细胞自噬代理指数</h2>
+          </div>
+          <span class="stat-chip" id="confidenceText">可信度 --</span>
+        </div>
+        <p class="formula-main" id="formulaText"></p>
+        <div class="component-grid" id="componentGrid"></div>
+        <p class="muted">细胞自噬不能由这些截图直接测量；这里显示的是依据空腹、热量限制、营养信号、活动和身体组成变化推算的趋势指数。若需要医学级判断，需要实验室指标或医生评估。</p>
+        <div class="source-links" aria-label="公式依据">
+          <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6054220/" target="_blank" rel="noreferrer">AMPK/mTOR 营养压力</a>
+          <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10509423/" target="_blank" rel="noreferrer">热量限制与空腹</a>
+          <a href="https://pubmed.ncbi.nlm.nih.gov/29626392/" target="_blank" rel="noreferrer">运动与自噬标志物</a>
+          <a href="https://pubmed.ncbi.nlm.nih.gov/34738031/" target="_blank" rel="noreferrer">氨基酸与 mTORC1</a>
+        </div>
+      </section>
 
-      return {
-        weight: match([/体重[^\d]{0,8}(\d+(?:\.\d+)?)/i, /weight[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        bodyFat: match([/体脂(?:率)?[^\d]{0,8}(\d+(?:\.\d+)?)/i, /body\s*fat[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        muscleRate: match([/肌肉(?:率)?[^\d]{0,8}(\d+(?:\.\d+)?)/i, /muscle[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        proteinIntake: match([/蛋白质?(?:摄入量)?[^\d]{0,8}(\d+(?:\.\d+)?)/i, /protein[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        bodyProteinRate: match([/蛋白质含量[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        bmr: match([/BMR[^\d]{0,8}(\d+(?:\.\d+)?)/i, /基础代谢[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        energyBalance: match([/净能量平衡[^\d-]{0,8}(-?\d+(?:\.\d+)?)/i, /能量(?:平衡)?[^\d-]{0,8}(-?\d+(?:\.\d+)?)/i]),
-        feedingWindow: match([/进食窗口[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        visceralFat: match([/内脏脂肪[^\d]{0,8}(\d+(?:\.\d+)?)/i]),
-        bmi: match([/BMI[^\d]{0,8}(\d+(?:\.\d+)?)/i])
-      };
-    }
+      <section class="derived-panel">
+        <div class="section-title">
+          <div>
+            <p class="label">扩展指标</p>
+            <h2>由每日截图推算的身体状态</h2>
+          </div>
+        </div>
+        <div class="derived-grid" id="derivedGrid"></div>
+      </section>
 
-    function inferRecordFromImages(baseRecord) {
-      const last = sortRecords(state.records).slice(-1)[0] || {};
-      const mergedText = state.pendingImageMetas.map(item => `${item.name || ''} ${item.textHint || ''}`).join(' ');
-      const parsed = extractNumbersFromText(mergedText);
-      const inferred = { ...last, ...baseRecord };
+      <section class="chart-grid">
+        <article class="chart-card wide">
+          <div class="chart-head">
+            <div>
+              <p class="label">过去七天</p>
+              <h2>细胞自噬波动</h2>
+            </div>
+            <span id="autophagyAverage" class="stat-chip">均值 --</span>
+          </div>
+          <canvas id="autophagyChart" height="260" aria-label="过去七天细胞自噬曲线"></canvas>
+        </article>
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>体脂率</h2>
+            <span id="fatAverage" class="stat-chip">--</span>
+          </div>
+          <canvas id="fatChart" height="220" aria-label="体脂率七日曲线"></canvas>
+        </article>
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>肌肉率</h2>
+            <span id="muscleAverage" class="stat-chip">--</span>
+          </div>
+          <canvas id="muscleChart" height="220" aria-label="肌肉率七日曲线"></canvas>
+        </article>
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>蛋白质摄入</h2>
+            <span id="proteinAverage" class="stat-chip">--</span>
+          </div>
+          <canvas id="proteinChart" height="220" aria-label="蛋白质摄入七日曲线"></canvas>
+        </article>
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>细胞内活动分析</h2>
+            <span id="cellAverage" class="stat-chip">--</span>
+          </div>
+          <canvas id="cellChart" height="220" aria-label="细胞内活动七日曲线"></canvas>
+        </article>
+      </section>
 
-      Object.entries(parsed).forEach(([key, value]) => {
-        if (value !== undefined && Number.isFinite(value)) inferred[key] = value;
-      });
+      <section class="data-entry">
+        <div class="section-title">
+          <div>
+            <p class="label">手动输入</p>
+            <h2>新增或更新某一天</h2>
+          </div>
+          <button class="secondary-button" id="clearForm" type="button">清空</button>
+        </div>
+        <form id="entryForm" class="entry-form">
+          <label>日期<input name="date" type="date" required /></label>
+          <label>空腹小时<input name="fastingHours" type="number" step="0.1" min="0" placeholder="12.2" required /></label>
+          <label>能量平衡 千卡<input name="energyBalance" type="number" step="1" placeholder="-533" required /></label>
+          <label>摄入 千卡<input name="intakeKcal" type="number" step="1" placeholder="642" /></label>
+          <label>燃烧 千卡<input name="burnKcal" type="number" step="1" placeholder="1175" /></label>
+          <label>基础代谢 千卡<input name="bmrKcal" type="number" step="1" placeholder="970" /></label>
+          <label>活动燃烧 千卡<input name="activityKcal" type="number" step="1" placeholder="205" /></label>
+          <label>体脂率 %<input name="bodyFat" type="number" step="0.1" placeholder="21.4" /></label>
+          <label>肌肉率 %<input name="muscleRate" type="number" step="0.1" placeholder="34.1" /></label>
+          <label>水分含量 %<input name="waterContent" type="number" step="0.1" placeholder="55.8" /></label>
+          <label>蛋白质摄入 g<input name="proteinIntake" type="number" step="0.1" placeholder="35" /></label>
+          <label>蛋白质占比 %<input name="proteinShare" type="number" step="0.1" placeholder="26" /></label>
+          <label>碳水 g<input name="carbGrams" type="number" step="0.1" placeholder="74" /></label>
+          <label>体重 斤<input name="weightJin" type="number" step="0.1" placeholder="128.3" /></label>
+          <button class="primary-button" type="submit">保存并重算</button>
+        </form>
+      </section>
 
-      inferred.images = [...state.pendingImages];
-      inferred.note = baseRecord.note || (state.pendingImageMetas.length ? `来自截图：${state.pendingImageMetas.map(x => x.name).filter(Boolean).join('，')}` : inferred.note || '');
-      if (!inferred.feedingWindow) inferred.feedingWindow = last.feedingWindow || 8;
-      if (!inferred.bmr) inferred.bmr = last.bmr || 0;
-      if (inferred.date && !baseRecord.date) inferred.date = inferred.date;
-      return inferred;
-    }
-
-    function renderPreviews() {
-      $('imagePreview').innerHTML = state.pendingImages.map(src => `<img src="${src}" alt="预览" />`).join('');
-    }
-
-    function setActivePanel(panelId) {
-      state.activePanel = panelId;
-      ['recordPanel', 'trendPanel', 'guidePanel', 'historyPanel'].forEach(id => {
-        $(id).classList.toggle('panel-hidden', id !== panelId);
-      });
-      document.querySelectorAll('#sectionTabs .section-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.panel === panelId);
-      });
-    }
-
-    function upsertRecord(record) {
-      const idx = state.records.findIndex(r => r.date === record.date);
-      if (idx >= 0) {
-        const existing = state.records[idx];
-        state.records[idx] = { ...existing, ...record, images: record.images.length ? record.images : (existing.images || []) };
-      } else {
-        state.records.push(record);
-      }
-      state.records = sortRecords(state.records);
-      saveRecords();
-      refresh();
-    }
-
-    function getFormRecord() {
-      return {
-        date: $('date').value,
-        weight: toNum($('weight').value),
-        bodyFat: toNum($('bodyFat').value),
-        muscleRate: toNum($('muscleRate').value),
-        proteinIntake: toNum($('proteinIntake').value),
-        bodyProteinRate: toNum($('bodyProteinRate').value),
-        bmr: toNum($('bmr').value),
-        energyBalance: toNum($('energyBalance').value),
-        feedingWindow: toNum($('feedingWindow').value || 8),
-        visceralFat: toNum($('visceralFat').value),
-        bmi: toNum($('bmi').value),
-        note: $('note').value.trim(),
-        images: [...state.pendingImages]
-      };
-    }
-
-    function fillToday() {
-      $('date').value = new Date().toISOString().slice(0, 10);
-    }
-
-    function fillForm(record) {
-      $('date').value = record.date || '';
-      $('weight').value = record.weight ?? '';
-      $('bodyFat').value = record.bodyFat ?? '';
-      $('muscleRate').value = record.muscleRate ?? '';
-      $('proteinIntake').value = record.proteinIntake ?? '';
-      $('bodyProteinRate').value = record.bodyProteinRate ?? '';
-      $('bmr').value = record.bmr ?? '';
-      $('energyBalance').value = record.energyBalance ?? '';
-      $('feedingWindow').value = record.feedingWindow ?? 8;
-      $('visceralFat').value = record.visceralFat ?? '';
-      $('bmi').value = record.bmi ?? '';
-      $('note').value = record.note ?? '';
-      state.pendingImages = [...(record.images || [])];
-      state.pendingImageMetas = (record.images || []).map((src, idx) => ({ name: `image-${idx + 1}`, textHint: '' }));
-      $('imageInput').value = '';
-      renderPreviews();
-    }
-
-    function exportJSON() {
-      const blob = new Blob([JSON.stringify(state.records, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'health-records.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function refresh() {
-      renderSummary();
-      renderGuide();
-      renderHistoryList();
-      renderHomeAutophagyChart();
-      renderChart();
-    }
-
-    $('sectionTabs').addEventListener('click', (e) => {
-      const btn = e.target.closest('.section-tab');
-      if (!btn) return;
-      setActivePanel(btn.dataset.panel);
-    });
-
-    $('chartTabs').addEventListener('click', (e) => {
-      const btn = e.target.closest('.tab');
-      if (!btn) return;
-      state.activeChart = btn.dataset.key;
-      document.querySelectorAll('#chartTabs .tab').forEach(tab => tab.classList.toggle('active', tab === btn));
-      renderChart();
-    });
-
-    $('imageInput').addEventListener('change', async (e) => {
-      const files = [...e.target.files];
-      state.pendingImages = [];
-      state.pendingImageMetas = [];
-      for (const file of files) {
-        const src = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        });
-        state.pendingImages.push(src);
-        state.pendingImageMetas.push({ name: file.name || '', textHint: file.name || '' });
-      }
-      renderPreviews();
-    });
-
-    $('saveBtn').addEventListener('click', () => {
-      let record = getFormRecord();
-      if (!record.date) return alert('请先选择日期');
-      if (state.pendingImages.length) {
-        record = inferRecordFromImages(record);
-      }
-      if (!state.pendingImages.length && !record.bodyFat && !record.muscleRate && !record.proteinIntake) {
-        return alert('未上传截图时，至少录入体脂率、肌肉率、蛋白质摄入量中的一部分数据');
-      }
-      if (!hasMeaningfulMetric(record) && state.pendingImages.length) {
-        return alert('截图已上传，但当前版本还不能从图片本体直接 OCR 识别数字。请至少补一项关键数据，或把关键数字写进图片文件名后再上传。');
-      }
-      upsertRecord(record);
-      state.pendingImages = [];
-      state.pendingImageMetas = [];
-      $('imageInput').value = '';
-      renderPreviews();
-      alert('记录已保存，分析已更新。');
-    });
-
-    $('fillSampleBtn').addEventListener('click', () => fillForm(SAMPLE_DATA[SAMPLE_DATA.length - 1]));
-    $('loadSampleBtn').addEventListener('click', () => {
-      state.records = SAMPLE_DATA.map(item => ({ ...item }));
-      saveRecords();
-      fillForm(SAMPLE_DATA[SAMPLE_DATA.length - 1]);
-      refresh();
-    });
-    $('fillTodayBtn').addEventListener('click', fillToday);
-    $('exportBtn').addEventListener('click', exportJSON);
-    $('clearBtn').addEventListener('click', () => {
-      if (!confirm('确定要清空当前浏览器里的所有历史记录吗？')) return;
-      state.records = [];
-      saveRecords();
-      refresh();
-    });
-
-    fillToday();
-    if (!state.records.length) {
-      state.records = SAMPLE_DATA.map(item => ({ ...item }));
-      saveRecords();
-      fillForm(SAMPLE_DATA[SAMPLE_DATA.length - 1]);
-    }
-    setActivePanel('recordPanel');
-    refresh();
-  </script>
-</body>
+      <section class="history-panel">
+        <div class="section-title">
+          <div>
+            <p class="label">记录明细</p>
+            <h2>已保存数据</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>空腹</th>
+                <th>自噬</th>
+                <th>体脂</th>
+                <th>肌肉</th>
+                <th>蛋白</th>
+                <th>能量</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
 </html>
