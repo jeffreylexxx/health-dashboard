@@ -101,6 +101,8 @@ const el = {
   formulaText: document.querySelector("#formulaText"),
   componentGrid: document.querySelector("#componentGrid"),
   derivedGrid: document.querySelector("#derivedGrid"),
+  toggleHistory: document.querySelector("#toggleHistory"),
+  historyContent: document.querySelector("#historyContent"),
 };
 
 function loadRecords() {
@@ -385,7 +387,7 @@ function renderComponents(components) {
 }
 
 function renderDerivedMetrics(latest, previous, seven, latestAuto) {
-  const derived = calculateDerivedMetrics(latest, previous, seven, latestAuto);
+  const derived = calculateDerivedMetrics(latest, seven);
   el.derivedGrid.innerHTML = derived
     .map(
       (item) => `<article class="derived-card">
@@ -397,70 +399,70 @@ function renderDerivedMetrics(latest, previous, seven, latestAuto) {
     .join("");
 }
 
-function calculateDerivedMetrics(record, previous, seven, autophagy) {
+function calculateDerivedMetrics(record, seven) {
   const weightKg = estimateWeightKg(record);
-  const fatMassKg = weightKg && isFiniteValue(record.bodyFat) ? weightKg * (Number(record.bodyFat) / 100) : null;
-  const leanMassKg = weightKg && fatMassKg !== null ? weightKg - fatMassKg : null;
-  const muscleMassKg = weightKg && isFiniteValue(record.muscleRate) ? weightKg * (Number(record.muscleRate) / 100) : null;
   const proteinPerKg = weightKg && isFiniteValue(record.proteinIntake) ? Number(record.proteinIntake) / weightKg : null;
-  const deficit = isFiniteValue(record.energyBalance) ? Math.max(0, -Number(record.energyBalance)) : null;
+  const intake = isFiniteValue(record.intakeKcal) ? Number(record.intakeKcal) : null;
+  const burn = isFiniteValue(record.burnKcal) ? Math.abs(Number(record.burnKcal)) : null;
   const bmr = estimateBmr(record);
-  const deficitRatio = deficit !== null && bmr ? deficit / bmr : null;
-  const activityRatio = estimateActivity(record) && bmr ? estimateActivity(record) / bmr : null;
+  const activity = estimateActivity(record);
+  const netAfterActivity = intake !== null ? intake - activity : null;
+  const energyAvailability = weightKg && netAfterActivity !== null ? netAfterActivity / weightKg : null;
+  const intakeCoverage = intake !== null && burn ? intake / burn : null;
+  const proteinEnergyShare = intake && isFiniteValue(record.proteinIntake) ? (Number(record.proteinIntake) * 4) / intake : null;
+  const carbProteinRatio = isFiniteValue(record.carbGrams) && isFiniteValue(record.proteinIntake) && Number(record.proteinIntake) > 0 ? Number(record.carbGrams) / Number(record.proteinIntake) : null;
   const carbPerKg = weightKg && isFiniteValue(record.carbGrams) ? Number(record.carbGrams) / weightKg : null;
-  const weightChange = previous && isFiniteValue(record.weightJin) && isFiniteValue(previous.weightJin) ? Number(record.weightJin) - Number(previous.weightJin) : null;
   const validSeven = seven.filter((item) => !item.missing);
+  const fastingValues = validSeven.map((item) => (isFiniteValue(item.fastingHours) ? Number(item.fastingHours) : null)).filter(Number.isFinite);
+  const fastingAverage = fastingValues.length ? fastingValues.reduce((sum, value) => sum + value, 0) / fastingValues.length : null;
+  const fastingMax = fastingValues.length ? Math.max(...fastingValues) : null;
+  const netPressure = burn !== null && intake !== null ? burn - intake : null;
 
   return [
     {
-      label: "脂肪质量",
-      value: fatMassKg === null ? "--" : `${round(fatMassKg, 1)} kg`,
-      note: "由体重和体脂率估算，适合看趋势",
+      label: "净摄入",
+      value: netAfterActivity === null ? "--" : `${round(netAfterActivity, 0)} 千卡`,
+      note: "摄入减活动燃烧，偏低时更接近 AMPK 能量压力",
     },
     {
-      label: "去脂体重",
-      value: leanMassKg === null ? "--" : `${round(leanMassKg, 1)} kg`,
-      note: "体重减脂肪质量，反映非脂肪组织总量",
+      label: "能量可用性",
+      value: energyAvailability === null ? "--" : `${round(energyAvailability, 1)} kcal/kg`,
+      note: "净摄入除以体重，观察热量限制对身体的压力",
     },
     {
-      label: "肌肉质量",
-      value: muscleMassKg === null ? "--" : `${round(muscleMassKg, 1)} kg`,
-      note: "由肌肉率和体重估算",
+      label: "摄入覆盖率",
+      value: intakeCoverage === null ? "--" : `${round(intakeCoverage * 100, 0)}%`,
+      note: "摄入热量占当日燃烧热量的比例",
     },
     {
-      label: "蛋白质密度",
-      value: proteinPerKg === null ? "--" : `${round(proteinPerKg, 2)} g/kg`,
-      note: "用于判断蛋白摄入相对体重的强度",
+      label: "七日空腹均值",
+      value: fastingAverage === null ? "--" : formatFasting(fastingAverage),
+      note: "观察空腹节律是否稳定，而不是只看单日峰值",
     },
     {
-      label: "能量缺口/BMR",
-      value: deficitRatio === null ? "--" : `${round(deficitRatio * 100, 0)}%`,
-      note: "能量压力越高，ASI 中 D 项越高",
+      label: "最长空腹",
+      value: fastingMax === null ? "--" : formatFasting(fastingMax),
+      note: "用于观察热量限制与空腹窗口的上限",
     },
     {
-      label: "活动/BMR",
-      value: activityRatio === null ? "--" : `${round(activityRatio * 100, 0)}%`,
-      note: "运动和日常活动可提高能量压力",
+      label: "活动后压力",
+      value: netPressure === null ? "--" : `${round(netPressure, 0)} 千卡`,
+      note: "总燃烧减摄入，观察运动日的恢复压力",
+    },
+    {
+      label: "蛋白热量占比",
+      value: proteinEnergyShare === null ? "--" : `${round(proteinEnergyShare * 100, 0)}%`,
+      note: "蛋白质热量占摄入比例，关联氨基酸与 mTORC1 信号",
+    },
+    {
+      label: "碳蛋比",
+      value: carbProteinRatio === null ? "--" : `${round(carbProteinRatio, 2)} : 1`,
+      note: "碳水克数与蛋白克数比例，观察营养结构变化",
     },
     {
       label: "碳水密度",
       value: carbPerKg === null ? "--" : `${round(carbPerKg, 2)} g/kg`,
-      note: "碳水越低，ASI 中营养限制项越高",
-    },
-    {
-      label: "记录完整度",
-      value: `${autophagy.confidence}%`,
-      note: "截图字段越完整，代理指数越稳定",
-    },
-    {
-      label: "七日有效记录",
-      value: `${validSeven.length}/7 天`,
-      note: "缺失日期不会伪造曲线，只参与坐标留空",
-    },
-    {
-      label: "较上一条体重",
-      value: weightChange === null ? "--" : `${weightChange > 0 ? "+" : ""}${round(weightChange, 1)} 斤`,
-      note: "单日波动可能受水分和进食时间影响",
+      note: "碳水克数相对体重，观察营养压力的来源",
     },
   ];
 }
@@ -581,10 +583,7 @@ function drawLineChart(canvas, source, key, options) {
   if (!valid.length) return;
 
   ctx.beginPath();
-  valid.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  });
+  traceSmoothPath(ctx, valid);
   ctx.lineTo(valid.at(-1).x, padding.top + plotHeight);
   ctx.lineTo(valid[0].x, padding.top + plotHeight);
   ctx.closePath();
@@ -592,10 +591,7 @@ function drawLineChart(canvas, source, key, options) {
   ctx.fill();
 
   ctx.beginPath();
-  valid.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  });
+  traceSmoothPath(ctx, valid);
   ctx.strokeStyle = options.color;
   ctx.lineWidth = 3;
   ctx.stroke();
@@ -612,6 +608,24 @@ function drawLineChart(canvas, source, key, options) {
     ctx.font = "700 12px system-ui";
     ctx.fillText(`${round(point.value, options.suffix === "分" ? 0 : 1)}${options.suffix}`, point.x - 16, point.y - 10);
   });
+}
+
+function traceSmoothPath(ctx, points) {
+  if (!points.length) return;
+  ctx.moveTo(points[0].x, points[0].y);
+  if (points.length === 1) return;
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const p0 = points[index - 1] || points[index];
+    const p1 = points[index];
+    const p2 = points[index + 1];
+    const p3 = points[index + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
 }
 
 function renderHistory() {
@@ -656,6 +670,12 @@ el.entryForm.addEventListener("submit", (event) => {
 
 document.querySelector("#clearForm").addEventListener("click", () => {
   el.entryForm.reset();
+});
+
+el.toggleHistory.addEventListener("click", () => {
+  const isCollapsed = el.historyContent.classList.toggle("is-collapsed");
+  el.toggleHistory.textContent = isCollapsed ? "展开明细" : "收起明细";
+  el.toggleHistory.setAttribute("aria-expanded", String(!isCollapsed));
 });
 
 document.querySelector("#resetDemo").addEventListener("click", () => {
