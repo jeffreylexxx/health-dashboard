@@ -407,6 +407,7 @@ h2 {
   display: block;
   margin-top: 6px;
   color: var(--muted);
+  font-size: 0.92rem;
   line-height: 1.45;
 }
 
@@ -605,9 +606,24 @@ td {
   }
 
   .component-grid,
-  .derived-grid,
-  .entry-form {
+  .derived-grid {
     grid-template-columns: 1fr;
+  }
+
+  .entry-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .entry-form label {
+    gap: 5px;
+    font-size: 0.68rem;
+  }
+
+  .entry-form input {
+    min-height: 36px;
+    padding-inline: 7px;
+    font-size: 0.78rem;
   }
 
   .mini-facts {

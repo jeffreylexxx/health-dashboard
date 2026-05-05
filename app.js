@@ -441,11 +441,6 @@ function calculateDerivedMetrics(record, seven, previous = null, previousSeven =
 
   return [
     {
-      label: "净摄入",
-      value: raw.netAfterActivity === null ? "--" : `${round(raw.netAfterActivity, 0)} 千卡`,
-      note: derivedNote(raw.netAfterActivity, previousRaw?.netAfterActivity, "千卡", "净摄入下降，说明新增这一天后活动后的能量余量变少，AMPK 方向的能量压力更容易被拉高。净摄入上升则代表恢复余量增加，细胞自噬代理信号通常会更温和。", false),
-    },
-    {
       label: "能量可用性",
       value: raw.energyAvailability === null ? "--" : `${round(raw.energyAvailability, 1)} kcal/kg`,
       note: derivedNote(raw.energyAvailability, previousRaw?.energyAvailability, "kcal/kg", "新数据让能量可用性发生变化时，可以观察热量限制是否更集中地落在每公斤体重上。数值越低，越像处在热量限制期；数值回升时，恢复和训练支持会更充分。", false),
@@ -456,19 +451,9 @@ function calculateDerivedMetrics(record, seven, previous = null, previousSeven =
       note: derivedNote(raw.intakeCoverage, previousRaw?.intakeCoverage, "%", "新增一天后覆盖率下降，代表摄入没有追上燃烧，热量限制解释会更强。覆盖率上升时，当天更接近补能状态，ASI 的压力来源会相对减弱。", false, 100),
     },
     {
-      label: "七日空腹均值",
-      value: raw.fastingAverage === null ? "--" : formatFasting(raw.fastingAverage),
-      note: derivedNote(raw.fastingAverage, previousRaw?.fastingAverage, "小时", "这个值会随着新一天加入而滚动更新。均值上升说明空腹节律整体变长，而不是只有单日冲高；均值下降则说明最近一周空腹压力在放松。", true),
-    },
-    {
       label: "最长空腹",
       value: raw.fastingMax === null ? "--" : formatFasting(raw.fastingMax),
       note: derivedNote(raw.fastingMax, previousRaw?.fastingMax, "小时", "新增记录如果刷新最长空腹，说明最近七天的空腹上限被推高。若最长值不变，今天更多是在改变均值和稳定性，而不是改变峰值。", true),
-    },
-    {
-      label: "活动后压力",
-      value: raw.netPressure === null ? "--" : `${round(raw.netPressure, 0)} 千卡`,
-      note: derivedNote(raw.netPressure, previousRaw?.netPressure, "千卡", "活动后压力上升，表示燃烧和摄入之间的差距更大，运动日恢复需求也会更明显。下降时，说明新增这天更像补能或低压力日。", true),
     },
     {
       label: "蛋白热量占比",
