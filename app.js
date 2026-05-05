@@ -129,7 +129,12 @@ function getLatestRecord() {
 function lastSevenRecords() {
   const latest = getLatestRecord();
   if (!latest) return [];
-  const end = parseDate(latest.date);
+  return recordsWindowEnding(latest.date);
+}
+
+function recordsWindowEnding(endDate) {
+  if (!endDate) return [];
+  const end = parseDate(endDate);
   const start = new Date(end);
   start.setDate(start.getDate() - 6);
   const recordMap = new Map(sortedRecords().map((record) => [record.date, record]));
@@ -298,6 +303,7 @@ function render() {
 
   const previous = records.at(-2);
   const latestAuto = calculateAutophagy(latest, previous);
+  const previousAuto = previous ? calculateAutophagy(previous, previousRecordFor(previous)) : null;
   const autoValues = seven.map((record) => ({
     ...record,
     autophagyScore: hasAutophagyInputs(record) ? calculateAutophagy(record, previousRecordFor(record)).score : null,
@@ -323,8 +329,8 @@ function render() {
   el.confidenceText.textContent = `数据完整度 ${latestAuto.confidence}%`;
   el.formulaText.textContent =
     "ASI = clamp(0,100, 45F + 20D + 12C + 10A + 8P + 5T)。F=空腹窗口，D=能量缺口/BMR，C=低碳水或低摄入，A=活动燃烧/BMR，P=蛋白质g/kg的mTOR刹车反向分，T=体脂/体重短期下降趋势。";
-  renderComponents(latestAuto.components);
-  renderDerivedMetrics(latest, previous, seven, latestAuto);
+  renderComponents(latestAuto.components, previousAuto?.components);
+  renderDerivedMetrics(latest, previous, seven);
 
   el.autophagyAverage.textContent = statText("均值", autophagyAvg, "分", 0);
   el.fatAverage.textContent = statText("均值", average(seven, "bodyFat"), "%");
@@ -372,22 +378,52 @@ function previousRecordFor(record) {
   return index > 0 ? records[index - 1] : null;
 }
 
-function renderComponents(components) {
-  el.componentGrid.innerHTML = Object.values(components)
-    .map((component) => {
+function renderComponents(components, previousComponents = null) {
+  el.componentGrid.innerHTML = Object.entries(components)
+    .map(([key, component]) => {
       const contribution = round(component.weight * component.value, 1);
       const percent = round(component.value * 100, 0);
+      const note = componentAnalysis(key, component, previousComponents?.[key]);
       return `<article class="component-card">
         <span>${component.label} · 权重 ${component.weight}</span>
         <strong>${contribution} 分</strong>
-        <small>${percent}% 强度 · ${component.detail}</small>
+        <small>${percent}% 强度 · ${component.detail}。${note}</small>
       </article>`;
     })
     .join("");
 }
 
-function renderDerivedMetrics(latest, previous, seven, latestAuto) {
-  const derived = calculateDerivedMetrics(latest, seven);
+function componentAnalysis(key, component, previousComponent) {
+  const current = component.weight * component.value;
+  const previous = previousComponent ? previousComponent.weight * previousComponent.value : null;
+  const change = previous === null ? null : round(current - previous, 1);
+  const movement = trendPhrase(change, "分");
+  const highLow = component.value >= 0.66 ? "当前这一项处在偏高区间" : component.value >= 0.33 ? "当前这一项处在中等区间" : "当前这一项处在偏低区间";
+  const meaning = {
+    fasting: changeMeaning(change, "空腹窗口延长，时间压力更强", "空腹窗口缩短，时间压力回落", "空腹节律基本延续上一条记录"),
+    deficit: changeMeaning(change, "能量缺口扩大，AMPK 相关能量压力更明显", "能量缺口收窄，身体恢复压力减轻", "能量压力变化不大"),
+    carb: changeMeaning(change, "碳水或总摄入更低，营养限制信号增强", "碳水或总摄入提高，营养限制信号减弱", "营养限制强度基本稳定"),
+    activity: changeMeaning(change, "活动燃烧提高，运动刺激更明显", "活动燃烧下降，运动刺激变弱", "活动刺激接近上一条记录"),
+    protein: changeMeaning(change, "蛋白相对体重更低，氨基酸对 mTORC1 的刹车项减弱", "蛋白相对体重更高，氨基酸营养信号更强", "蛋白相关信号基本稳定"),
+    trend: changeMeaning(change, "体脂或体重短期下降更明显，趋势项加强", "体脂或体重下降趋势减弱，趋势项回落", "体成分趋势接近上一条记录"),
+  };
+  return `${movement}，${meaning[key] || "该项随新数据重新估算"}。${highLow}，会影响 ASI 总分的边际变化。`;
+}
+
+function trendPhrase(change, suffix = "") {
+  if (change === null || change === undefined || !Number.isFinite(change)) return "新增数据后暂无上一条可比记录";
+  if (Math.abs(change) < 0.1) return "较上一条几乎持平";
+  return `较上一条${change > 0 ? "上升" : "下降"} ${Math.abs(change)}${suffix}`;
+}
+
+function changeMeaning(change, upText, downText, flatText) {
+  if (change === null || change === undefined || !Number.isFinite(change) || Math.abs(change) < 0.1) return flatText;
+  return change > 0 ? upText : downText;
+}
+
+function renderDerivedMetrics(latest, previous, seven) {
+  const previousSeven = previous ? recordsWindowEnding(previous.date) : [];
+  const derived = calculateDerivedMetrics(latest, seven, previous, previousSeven);
   el.derivedGrid.innerHTML = derived
     .map(
       (item) => `<article class="derived-card">
@@ -399,12 +435,63 @@ function renderDerivedMetrics(latest, previous, seven, latestAuto) {
     .join("");
 }
 
-function calculateDerivedMetrics(record, seven) {
+function calculateDerivedMetrics(record, seven, previous = null, previousSeven = []) {
+  const raw = deriveBodyState(record, seven);
+  const previousRaw = previous ? deriveBodyState(previous, previousSeven) : null;
+
+  return [
+    {
+      label: "净摄入",
+      value: raw.netAfterActivity === null ? "--" : `${round(raw.netAfterActivity, 0)} 千卡`,
+      note: derivedNote(raw.netAfterActivity, previousRaw?.netAfterActivity, "千卡", "净摄入下降，说明新增这一天后活动后的能量余量变少，AMPK 方向的能量压力更容易被拉高。净摄入上升则代表恢复余量增加，细胞自噬代理信号通常会更温和。", false),
+    },
+    {
+      label: "能量可用性",
+      value: raw.energyAvailability === null ? "--" : `${round(raw.energyAvailability, 1)} kcal/kg`,
+      note: derivedNote(raw.energyAvailability, previousRaw?.energyAvailability, "kcal/kg", "新数据让能量可用性发生变化时，可以观察热量限制是否更集中地落在每公斤体重上。数值越低，越像处在热量限制期；数值回升时，恢复和训练支持会更充分。", false),
+    },
+    {
+      label: "摄入覆盖率",
+      value: raw.intakeCoverage === null ? "--" : `${round(raw.intakeCoverage * 100, 0)}%`,
+      note: derivedNote(raw.intakeCoverage, previousRaw?.intakeCoverage, "%", "新增一天后覆盖率下降，代表摄入没有追上燃烧，热量限制解释会更强。覆盖率上升时，当天更接近补能状态，ASI 的压力来源会相对减弱。", false, 100),
+    },
+    {
+      label: "七日空腹均值",
+      value: raw.fastingAverage === null ? "--" : formatFasting(raw.fastingAverage),
+      note: derivedNote(raw.fastingAverage, previousRaw?.fastingAverage, "小时", "这个值会随着新一天加入而滚动更新。均值上升说明空腹节律整体变长，而不是只有单日冲高；均值下降则说明最近一周空腹压力在放松。", true),
+    },
+    {
+      label: "最长空腹",
+      value: raw.fastingMax === null ? "--" : formatFasting(raw.fastingMax),
+      note: derivedNote(raw.fastingMax, previousRaw?.fastingMax, "小时", "新增记录如果刷新最长空腹，说明最近七天的空腹上限被推高。若最长值不变，今天更多是在改变均值和稳定性，而不是改变峰值。", true),
+    },
+    {
+      label: "活动后压力",
+      value: raw.netPressure === null ? "--" : `${round(raw.netPressure, 0)} 千卡`,
+      note: derivedNote(raw.netPressure, previousRaw?.netPressure, "千卡", "活动后压力上升，表示燃烧和摄入之间的差距更大，运动日恢复需求也会更明显。下降时，说明新增这天更像补能或低压力日。", true),
+    },
+    {
+      label: "蛋白热量占比",
+      value: raw.proteinEnergyShare === null ? "--" : `${round(raw.proteinEnergyShare * 100, 0)}%`,
+      note: derivedNote(raw.proteinEnergyShare, previousRaw?.proteinEnergyShare, "%", "蛋白热量占比提高时，氨基酸营养信号更突出，mTORC1 相关解释权重会增加。占比下降时，说明新增数据里的摄入结构更少由蛋白驱动。", true, 100),
+    },
+    {
+      label: "碳蛋比",
+      value: raw.carbProteinRatio === null ? "--" : `${round(raw.carbProteinRatio, 2)} : 1`,
+      note: derivedNote(raw.carbProteinRatio, previousRaw?.carbProteinRatio, "", "碳蛋比上升，说明新增这天的摄入更偏向碳水；下降时，摄入结构更偏向蛋白。这个变化会帮助解释营养压力来自低碳、低摄入，还是蛋白占比变化。", true),
+    },
+    {
+      label: "碳水密度",
+      value: raw.carbPerKg === null ? "--" : `${round(raw.carbPerKg, 2)} g/kg`,
+      note: derivedNote(raw.carbPerKg, previousRaw?.carbPerKg, "g/kg", "碳水密度下降时，营养限制更可能来自碳水减少；上升时，糖原补充和训练恢复解释会更强。新增一天会把这个指标重新拉向当天的饮食结构。", true),
+    },
+  ];
+}
+
+function deriveBodyState(record, seven) {
   const weightKg = estimateWeightKg(record);
-  const proteinPerKg = weightKg && isFiniteValue(record.proteinIntake) ? Number(record.proteinIntake) / weightKg : null;
   const intake = isFiniteValue(record.intakeKcal) ? Number(record.intakeKcal) : null;
   const burn = isFiniteValue(record.burnKcal) ? Math.abs(Number(record.burnKcal)) : null;
-  const bmr = estimateBmr(record);
   const activity = estimateActivity(record);
   const netAfterActivity = intake !== null ? intake - activity : null;
   const energyAvailability = weightKg && netAfterActivity !== null ? netAfterActivity / weightKg : null;
@@ -417,54 +504,19 @@ function calculateDerivedMetrics(record, seven) {
   const fastingAverage = fastingValues.length ? fastingValues.reduce((sum, value) => sum + value, 0) / fastingValues.length : null;
   const fastingMax = fastingValues.length ? Math.max(...fastingValues) : null;
   const netPressure = burn !== null && intake !== null ? burn - intake : null;
+  return { netAfterActivity, energyAvailability, intakeCoverage, fastingAverage, fastingMax, netPressure, proteinEnergyShare, carbProteinRatio, carbPerKg };
+}
 
-  return [
-    {
-      label: "净摄入",
-      value: netAfterActivity === null ? "--" : `${round(netAfterActivity, 0)} 千卡`,
-      note: "摄入减活动燃烧，偏低时更接近 AMPK 能量压力",
-    },
-    {
-      label: "能量可用性",
-      value: energyAvailability === null ? "--" : `${round(energyAvailability, 1)} kcal/kg`,
-      note: "净摄入除以体重，观察热量限制对身体的压力",
-    },
-    {
-      label: "摄入覆盖率",
-      value: intakeCoverage === null ? "--" : `${round(intakeCoverage * 100, 0)}%`,
-      note: "摄入热量占当日燃烧热量的比例",
-    },
-    {
-      label: "七日空腹均值",
-      value: fastingAverage === null ? "--" : formatFasting(fastingAverage),
-      note: "观察空腹节律是否稳定，而不是只看单日峰值",
-    },
-    {
-      label: "最长空腹",
-      value: fastingMax === null ? "--" : formatFasting(fastingMax),
-      note: "用于观察热量限制与空腹窗口的上限",
-    },
-    {
-      label: "活动后压力",
-      value: netPressure === null ? "--" : `${round(netPressure, 0)} 千卡`,
-      note: "总燃烧减摄入，观察运动日的恢复压力",
-    },
-    {
-      label: "蛋白热量占比",
-      value: proteinEnergyShare === null ? "--" : `${round(proteinEnergyShare * 100, 0)}%`,
-      note: "蛋白质热量占摄入比例，关联氨基酸与 mTORC1 信号",
-    },
-    {
-      label: "碳蛋比",
-      value: carbProteinRatio === null ? "--" : `${round(carbProteinRatio, 2)} : 1`,
-      note: "碳水克数与蛋白克数比例，观察营养结构变化",
-    },
-    {
-      label: "碳水密度",
-      value: carbPerKg === null ? "--" : `${round(carbPerKg, 2)} g/kg`,
-      note: "碳水克数相对体重，观察营养压力的来源",
-    },
-  ];
+function derivedNote(current, previous, suffix, interpretation, higherIsMore = true, multiplier = 1) {
+  if (!isFiniteValue(current)) return "这项需要更多当日数据才能分析。新增截图识别到相关字段后，这里会自动改写为当天和上一条记录的对比说明。";
+  const currentValue = Number(current) * multiplier;
+  const previousValue = isFiniteValue(previous) ? Number(previous) * multiplier : null;
+  if (previousValue === null) return `这是新增记录后的当前基准值。${interpretation}`;
+  const diff = round(currentValue - previousValue, suffix === "%" ? 0 : 1);
+  const direction = Math.abs(diff) < 0.1 ? "基本持平" : diff > 0 ? "上升" : "下降";
+  const amount = Math.abs(diff) < 0.1 ? "" : ` ${Math.abs(diff)}${suffix}`;
+  const pressure = Math.abs(diff) < 0.1 ? "整体状态延续上一条记录" : diff > 0 === higherIsMore ? "该变化让这个指标的压力解释更强" : "该变化让这个指标的压力解释减弱";
+  return `新增这一天后，较上一条${direction}${amount}。${pressure}。${interpretation}`;
 }
 
 function valueText(value, suffix, digits = 1) {
