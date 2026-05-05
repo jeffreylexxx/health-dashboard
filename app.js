@@ -484,23 +484,24 @@ function diffText(current, previous, suffix, label) {
 
 function setupCanvas(canvas, height) {
   const rect = canvas.getBoundingClientRect();
+  const cssHeight = rect.height || height;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-  canvas.height = Math.floor(height * dpr);
+  canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { ctx, width: rect.width, height };
+  return { ctx, width: rect.width, height: cssHeight };
 }
 
 function drawGauge(canvas, score) {
-  const { ctx, width } = setupCanvas(canvas, 220);
+  const { ctx, width, height } = setupCanvas(canvas, 220);
   const centerX = width / 2;
-  const centerY = 172;
-  const radius = Math.min(width * 0.38, 142);
+  const centerY = height * 0.78;
+  const radius = Math.min(width * 0.38, height * 0.62, 142);
   const start = Math.PI;
   const end = Math.PI * 2;
 
-  ctx.clearRect(0, 0, width, 220);
+  ctx.clearRect(0, 0, width, height);
   ctx.lineCap = "round";
   ctx.lineWidth = 18;
   ctx.strokeStyle = "rgba(255,255,255,0.1)";
@@ -533,9 +534,10 @@ function drawGauge(canvas, score) {
 }
 
 function drawLineChart(canvas, source, key, options) {
-  const height = Number(canvas.getAttribute("height")) || 220;
-  const { ctx, width } = setupCanvas(canvas, height);
-  const padding = { top: 22, right: 24, bottom: 38, left: 42 };
+  const preferredHeight = Number(canvas.getAttribute("height")) || 220;
+  const { ctx, width, height } = setupCanvas(canvas, preferredHeight);
+  const compact = height < 170;
+  const padding = { top: compact ? 16 : 22, right: compact ? 16 : 24, bottom: compact ? 28 : 38, left: compact ? 34 : 42 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const values = source.map((item) => (isFiniteValue(item[key]) ? Number(item[key]) : null)).filter(Number.isFinite);
@@ -804,6 +806,10 @@ function matchNumber(text, pattern) {
   return match ? Number(match[1]) : null;
 }
 
-window.addEventListener("resize", () => render());
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(render, 120);
+});
 
 render();

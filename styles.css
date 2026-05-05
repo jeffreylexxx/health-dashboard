@@ -447,7 +447,14 @@ h2 {
 .chart-card canvas {
   display: block;
   width: 100%;
-  margin-top: 14px;
+  height: 190px;
+  max-height: 190px;
+  margin-top: 10px;
+}
+
+.chart-card.wide canvas {
+  height: 210px;
+  max-height: 210px;
 }
 
 .entry-form {
@@ -566,7 +573,7 @@ td {
 
 @media (max-width: 560px) {
   .app-shell {
-    padding-inline: 12px;
+    padding-inline: 10px;
   }
 
   .hero {
@@ -580,7 +587,11 @@ td {
   .today-grid,
   .metric-row,
   .chart-grid {
-    gap: 12px;
+    gap: 8px;
+  }
+
+  .today-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .autophagy-panel,
@@ -590,23 +601,126 @@ td {
   .chart-card,
   .data-entry,
   .history-panel {
-    padding: 14px;
+    padding: 10px;
   }
 
-  .mini-facts,
   .component-grid,
   .derived-grid,
-  .metric-row,
   .entry-form {
     grid-template-columns: 1fr;
   }
 
+  .mini-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .mini-facts div {
+    padding: 7px 5px;
+  }
+
+  .mini-facts span {
+    font-size: 0.66rem;
+  }
+
+  .mini-facts strong {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .metric-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .metric-card {
-    min-height: 108px;
+    min-height: 98px;
+    padding: 11px;
+    column-gap: 8px;
+  }
+
+  .metric-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .metric-card strong {
+    font-size: 1.25rem;
+  }
+
+  .metric-card small {
+    font-size: 0.72rem;
   }
 
   .chart-head,
   .section-title {
     align-items: center;
+  }
+
+  .gauge-wrap {
+    min-height: 128px;
+  }
+
+  .gauge-wrap canvas {
+    width: min(100%, 150px);
+    height: 118px;
+  }
+
+  .gauge-copy strong {
+    font-size: 2rem;
+  }
+
+  .gauge-copy span {
+    font-size: 0.7rem;
+  }
+
+  .panel-heading,
+  .chart-head,
+  .section-title {
+    gap: 6px;
+  }
+
+  h2 {
+    font-size: 1rem;
+  }
+
+  .date-pill,
+  .stat-chip {
+    min-height: 28px;
+    padding: 4px 7px;
+    font-size: 0.72rem;
+  }
+
+  .drop-zone {
+    min-height: 116px;
+    margin-top: 10px;
+    padding: 8px;
+    font-size: 0.82rem;
+  }
+
+  .drop-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 1.45rem;
+  }
+
+  .full-button,
+  .secondary-button,
+  .primary-button {
+    min-height: 36px;
+    padding-inline: 9px;
+    font-size: 0.82rem;
+  }
+
+  .insight,
+  .muted {
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .chart-card canvas,
+  .chart-card.wide canvas {
+    height: 145px;
+    max-height: 145px;
+    margin-top: 8px;
   }
 }
