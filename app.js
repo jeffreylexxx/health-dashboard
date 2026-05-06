@@ -368,31 +368,23 @@ function renderComponents(components, previousComponents = null) {
   el.componentGrid.innerHTML = Object.entries(components)
     .map(([key, component]) => {
       const contribution = round(component.weight * component.value, 1);
-      const percent = round(component.value * 100, 0);
-      const note = componentAnalysis(key, component, previousComponents?.[key]);
+      const previousContribution = previousComponents?.[key] ? round(previousComponents[key].weight * previousComponents[key].value, 1) : null;
+      const arrow = contributionArrow(contribution, previousContribution);
+      const previousText = previousContribution === null ? "上条 --" : `上条 ${previousContribution}分 ${arrow}`;
       return `<article class="component-card">
         <span>${component.label} · 权重 ${component.weight}</span>
         <strong>${contribution} 分</strong>
-        <small>${percent}% 强度 · ${component.detail}。${note}</small>
+        <small>${component.detail} · ${previousText}</small>
       </article>`;
     })
     .join("");
 }
 
-function componentAnalysis(key, component, previousComponent) {
-  const current = component.weight * component.value;
-  const previous = previousComponent ? previousComponent.weight * previousComponent.value : null;
-  const change = previous === null ? null : round(current - previous, 1);
-  const movement = trendPhrase(change, "分");
-  const meaning = {
-    fasting: changeMeaning(change, "空腹窗口延长，时间压力更强", "空腹窗口缩短，时间压力回落", "空腹节律基本延续上一条记录"),
-    deficit: changeMeaning(change, "能量缺口扩大，AMPK 相关能量压力更明显", "能量缺口收窄，身体恢复压力减轻", "能量压力变化不大"),
-    carb: changeMeaning(change, "碳水或总摄入更低，营养限制信号增强", "碳水或总摄入提高，营养限制信号减弱", "营养限制强度基本稳定"),
-    activity: changeMeaning(change, "活动燃烧提高，运动刺激更明显", "活动燃烧下降，运动刺激变弱", "活动刺激接近上一条记录"),
-    protein: changeMeaning(change, "蛋白相对体重更低，氨基酸对 mTORC1 的刹车项减弱", "蛋白相对体重更高，氨基酸营养信号更强", "蛋白相关信号基本稳定"),
-    trend: changeMeaning(change, "体脂或体重短期下降更明显，趋势项加强", "体脂或体重下降趋势减弱，趋势项回落", "体成分趋势接近上一条记录"),
-  };
-  return `${movement}，${meaning[key] || "该项随新数据重新估算"}。`;
+function contributionArrow(current, previous) {
+  if (previous === null || previous === undefined || !Number.isFinite(previous)) return "";
+  const diff = current - previous;
+  if (Math.abs(diff) < 0.1) return "→";
+  return diff > 0 ? "↑" : "↓";
 }
 
 function trendPhrase(change, suffix = "") {
@@ -415,7 +407,7 @@ function renderDerivedMetrics(latest, previous, seven) {
         <span>${item.label}</span>
         <strong>${item.value}</strong>
         <small>${item.note}</small>
-        <canvas class="derived-mini-chart" data-key="${item.key}" height="72" aria-label="${item.label}最近三天曲线"></canvas>
+        <canvas class="derived-mini-chart" data-key="${item.key}" height="72" aria-label="${item.label}过去七天曲线"></canvas>
       </article>`,
     )
     .join("");
@@ -488,13 +480,11 @@ function deriveBodyState(record, seven) {
 }
 
 function derivedSeries(key) {
-  return sortedRecords()
-    .filter((record) => !record.missing)
-    .slice(-3)
-    .map((record) => {
+  return lastSevenRecords().map((record) => {
+    if (record.missing) return { date: record.date, value: null };
       const value = deriveBodyState(record, recordsWindowEnding(record.date))[key];
       return { date: record.date, value };
-    });
+  });
 }
 
 function drawMiniLineChart(canvas, series, color) {
@@ -512,7 +502,7 @@ function drawMiniLineChart(canvas, series, color) {
   if (!valid.length) {
     ctx.fillStyle = "rgba(244,248,255,0.45)";
     ctx.font = "12px system-ui";
-    ctx.fillText("暂无三日数据", 4, height / 2);
+    ctx.fillText("暂无七日数据", 4, height / 2);
     return;
   }
 
