@@ -105,7 +105,6 @@
           </div>
           <span class="stat-chip" id="confidenceText">可信度 --</span>
         </div>
-        <p class="formula-main" id="formulaText"></p>
         <div class="component-grid" id="componentGrid"></div>
         <p class="muted">细胞自噬不能由这些截图直接测量；这里显示的是依据空腹、热量限制、营养信号、活动和身体组成变化推算的趋势指数。若需要医学级判断，需要实验室指标或医生评估。</p>
         <div class="source-links" aria-label="公式依据">
@@ -114,16 +113,6 @@
           <a href="https://pubmed.ncbi.nlm.nih.gov/29626392/" target="_blank" rel="noreferrer">运动与自噬标志物</a>
           <a href="https://pubmed.ncbi.nlm.nih.gov/34738031/" target="_blank" rel="noreferrer">氨基酸与 mTORC1</a>
         </div>
-      </section>
-
-      <section class="derived-panel">
-        <div class="section-title">
-          <div>
-            <p class="label">扩展指标</p>
-            <h2>由每日截图推算的身体状态</h2>
-          </div>
-        </div>
-        <div class="derived-grid" id="derivedGrid"></div>
       </section>
 
       <section class="chart-grid">
@@ -146,25 +135,21 @@
         </article>
         <article class="chart-card">
           <div class="chart-head">
-            <h2>肌肉率</h2>
-            <span id="muscleAverage" class="stat-chip">--</span>
-          </div>
-          <canvas id="muscleChart" height="220" aria-label="肌肉率七日曲线"></canvas>
-        </article>
-        <article class="chart-card">
-          <div class="chart-head">
-            <h2>蛋白质摄入</h2>
-            <span id="proteinAverage" class="stat-chip">--</span>
-          </div>
-          <canvas id="proteinChart" height="220" aria-label="蛋白质摄入七日曲线"></canvas>
-        </article>
-        <article class="chart-card">
-          <div class="chart-head">
             <h2>细胞内活动分析</h2>
             <span id="cellAverage" class="stat-chip">--</span>
           </div>
           <canvas id="cellChart" height="220" aria-label="细胞内活动七日曲线"></canvas>
         </article>
+      </section>
+
+      <section class="derived-panel">
+        <div class="section-title">
+          <div>
+            <p class="label">扩展指标</p>
+            <h2>由每日截图推算的身体状态</h2>
+          </div>
+        </div>
+        <div class="derived-grid" id="derivedGrid"></div>
       </section>
 
       <section class="data-entry">
@@ -218,6 +203,16 @@
             <tbody id="historyBody"></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="formula-reference">
+        <div class="section-title">
+          <div>
+            <p class="label">公式参考</p>
+            <h2>ASI 计算公式</h2>
+          </div>
+        </div>
+        <p class="formula-main" id="formulaText"></p>
       </section>
     </main>
     <script src="./app.js"></script>

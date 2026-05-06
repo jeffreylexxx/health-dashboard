@@ -88,8 +88,6 @@ const el = {
   cellNote: document.querySelector("#cellNote"),
   autophagyAverage: document.querySelector("#autophagyAverage"),
   fatAverage: document.querySelector("#fatAverage"),
-  muscleAverage: document.querySelector("#muscleAverage"),
-  proteinAverage: document.querySelector("#proteinAverage"),
   cellAverage: document.querySelector("#cellAverage"),
   historyBody: document.querySelector("#historyBody"),
   entryForm: document.querySelector("#entryForm"),
@@ -334,8 +332,6 @@ function render() {
 
   el.autophagyAverage.textContent = statText("均值", autophagyAvg, "分", 0);
   el.fatAverage.textContent = statText("均值", average(seven, "bodyFat"), "%");
-  el.muscleAverage.textContent = statText("均值", average(seven, "muscleRate"), "%");
-  el.proteinAverage.textContent = statText("均值", average(seven, "proteinIntake"), "g");
   el.cellAverage.textContent = statText("均值", autophagyAvg, "分", 0);
 
   drawGauge(document.querySelector("#gaugeCanvas"), latestAuto.score);
@@ -350,16 +346,6 @@ function render() {
     color: "#ff4fac",
     fill: "rgba(255, 79, 172, 0.12)",
     suffix: "%",
-  });
-  drawLineChart(document.querySelector("#muscleChart"), seven, "muscleRate", {
-    color: "#70e0a3",
-    fill: "rgba(112, 224, 163, 0.12)",
-    suffix: "%",
-  });
-  drawLineChart(document.querySelector("#proteinChart"), seven, "proteinIntake", {
-    color: "#ffd166",
-    fill: "rgba(255, 209, 102, 0.13)",
-    suffix: "g",
   });
   drawLineChart(document.querySelector("#cellChart"), autoValues, "autophagyScore", {
     color: "#8d6cff",
@@ -398,7 +384,6 @@ function componentAnalysis(key, component, previousComponent) {
   const previous = previousComponent ? previousComponent.weight * previousComponent.value : null;
   const change = previous === null ? null : round(current - previous, 1);
   const movement = trendPhrase(change, "分");
-  const highLow = component.value >= 0.66 ? "当前这一项处在偏高区间" : component.value >= 0.33 ? "当前这一项处在中等区间" : "当前这一项处在偏低区间";
   const meaning = {
     fasting: changeMeaning(change, "空腹窗口延长，时间压力更强", "空腹窗口缩短，时间压力回落", "空腹节律基本延续上一条记录"),
     deficit: changeMeaning(change, "能量缺口扩大，AMPK 相关能量压力更明显", "能量缺口收窄，身体恢复压力减轻", "能量压力变化不大"),
@@ -407,7 +392,7 @@ function componentAnalysis(key, component, previousComponent) {
     protein: changeMeaning(change, "蛋白相对体重更低，氨基酸对 mTORC1 的刹车项减弱", "蛋白相对体重更高，氨基酸营养信号更强", "蛋白相关信号基本稳定"),
     trend: changeMeaning(change, "体脂或体重短期下降更明显，趋势项加强", "体脂或体重下降趋势减弱，趋势项回落", "体成分趋势接近上一条记录"),
   };
-  return `${movement}，${meaning[key] || "该项随新数据重新估算"}。${highLow}，会影响 ASI 总分的边际变化。`;
+  return `${movement}，${meaning[key] || "该项随新数据重新估算"}。`;
 }
 
 function trendPhrase(change, suffix = "") {
@@ -430,9 +415,13 @@ function renderDerivedMetrics(latest, previous, seven) {
         <span>${item.label}</span>
         <strong>${item.value}</strong>
         <small>${item.note}</small>
+        <canvas class="derived-mini-chart" data-key="${item.key}" height="72" aria-label="${item.label}最近三天曲线"></canvas>
       </article>`,
     )
     .join("");
+  el.derivedGrid.querySelectorAll(".derived-mini-chart").forEach((canvas) => {
+    drawMiniLineChart(canvas, derivedSeries(canvas.dataset.key), "#27d7e8");
+  });
 }
 
 function calculateDerivedMetrics(record, seven, previous = null, previousSeven = []) {
@@ -441,34 +430,40 @@ function calculateDerivedMetrics(record, seven, previous = null, previousSeven =
 
   return [
     {
+      key: "energyAvailability",
       label: "能量可用性",
       value: raw.energyAvailability === null ? "--" : `${round(raw.energyAvailability, 1)} kcal/kg`,
-      note: derivedNote(raw.energyAvailability, previousRaw?.energyAvailability, "kcal/kg", "新数据让能量可用性发生变化时，可以观察热量限制是否更集中地落在每公斤体重上。数值越低，越像处在热量限制期；数值回升时，恢复和训练支持会更充分。", false),
+      note: "净摄入按体重折算后的热量余量，用来观察热量限制是否集中到每公斤体重上。",
     },
     {
+      key: "intakeCoverage",
       label: "摄入覆盖率",
       value: raw.intakeCoverage === null ? "--" : `${round(raw.intakeCoverage * 100, 0)}%`,
-      note: derivedNote(raw.intakeCoverage, previousRaw?.intakeCoverage, "%", "新增一天后覆盖率下降，代表摄入没有追上燃烧，热量限制解释会更强。覆盖率上升时，当天更接近补能状态，ASI 的压力来源会相对减弱。", false, 100),
+      note: "摄入热量占当日总燃烧的比例，用来判断当天更接近热量限制还是补能状态。",
     },
     {
+      key: "fastingMax",
       label: "最长空腹",
       value: raw.fastingMax === null ? "--" : formatFasting(raw.fastingMax),
-      note: derivedNote(raw.fastingMax, previousRaw?.fastingMax, "小时", "新增记录如果刷新最长空腹，说明最近七天的空腹上限被推高。若最长值不变，今天更多是在改变均值和稳定性，而不是改变峰值。", true),
+      note: "最近七天内最高的空腹窗口，用来观察空腹压力的上限。",
     },
     {
+      key: "proteinEnergyShare",
       label: "蛋白热量占比",
       value: raw.proteinEnergyShare === null ? "--" : `${round(raw.proteinEnergyShare * 100, 0)}%`,
-      note: derivedNote(raw.proteinEnergyShare, previousRaw?.proteinEnergyShare, "%", "蛋白热量占比提高时，氨基酸营养信号更突出，mTORC1 相关解释权重会增加。占比下降时，说明新增数据里的摄入结构更少由蛋白驱动。", true, 100),
+      note: "蛋白质热量在总摄入中的占比，用来观察氨基酸营养信号的相对强度。",
     },
     {
+      key: "carbProteinRatio",
       label: "碳蛋比",
       value: raw.carbProteinRatio === null ? "--" : `${round(raw.carbProteinRatio, 2)} : 1`,
-      note: derivedNote(raw.carbProteinRatio, previousRaw?.carbProteinRatio, "", "碳蛋比上升，说明新增这天的摄入更偏向碳水；下降时，摄入结构更偏向蛋白。这个变化会帮助解释营养压力来自低碳、低摄入，还是蛋白占比变化。", true),
+      note: "碳水克数和蛋白质克数的比例，用来观察摄入结构偏向碳水还是蛋白。",
     },
     {
+      key: "carbPerKg",
       label: "碳水密度",
       value: raw.carbPerKg === null ? "--" : `${round(raw.carbPerKg, 2)} g/kg`,
-      note: derivedNote(raw.carbPerKg, previousRaw?.carbPerKg, "g/kg", "碳水密度下降时，营养限制更可能来自碳水减少；上升时，糖原补充和训练恢复解释会更强。新增一天会把这个指标重新拉向当天的饮食结构。", true),
+      note: "碳水摄入按体重折算后的密度，用来观察营养压力是否来自低碳水。",
     },
   ];
 }
@@ -492,16 +487,77 @@ function deriveBodyState(record, seven) {
   return { netAfterActivity, energyAvailability, intakeCoverage, fastingAverage, fastingMax, netPressure, proteinEnergyShare, carbProteinRatio, carbPerKg };
 }
 
+function derivedSeries(key) {
+  return sortedRecords()
+    .filter((record) => !record.missing)
+    .slice(-3)
+    .map((record) => {
+      const value = deriveBodyState(record, recordsWindowEnding(record.date))[key];
+      return { date: record.date, value };
+    });
+}
+
+function drawMiniLineChart(canvas, series, color) {
+  const { ctx, width, height } = setupCanvas(canvas, 72);
+  const values = series.map((item) => (isFiniteValue(item.value) ? Number(item.value) : null));
+  const valid = values.filter(Number.isFinite);
+  ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, height - 14);
+  ctx.lineTo(width, height - 14);
+  ctx.stroke();
+
+  if (!valid.length) {
+    ctx.fillStyle = "rgba(244,248,255,0.45)";
+    ctx.font = "12px system-ui";
+    ctx.fillText("暂无三日数据", 4, height / 2);
+    return;
+  }
+
+  const min = Math.min(...valid);
+  const max = Math.max(...valid);
+  const range = max - min || 1;
+  const points = values.map((value, index) => {
+    const x = series.length === 1 ? width / 2 : (width / (series.length - 1)) * index;
+    const y = value === null ? null : 10 + (height - 28) - ((value - min) / range) * (height - 28);
+    return { x, y, value };
+  });
+  const drawable = points.filter((point) => Number.isFinite(point.y));
+  if (!drawable.length) return;
+
+  ctx.beginPath();
+  traceSmoothPath(ctx, drawable);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  drawable.forEach((point) => {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#0b1019";
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+}
+
 function derivedNote(current, previous, suffix, interpretation, higherIsMore = true, multiplier = 1) {
   if (!isFiniteValue(current)) return "这项需要更多当日数据才能分析。新增截图识别到相关字段后，这里会自动改写为当天和上一条记录的对比说明。";
   const currentValue = Number(current) * multiplier;
   const previousValue = isFiniteValue(previous) ? Number(previous) * multiplier : null;
-  if (previousValue === null) return `这是新增记录后的当前基准值。${interpretation}`;
+  if (previousValue === null) return `这是新增记录后的当前基准值。${firstSentence(interpretation)}`;
   const diff = round(currentValue - previousValue, suffix === "%" ? 0 : 1);
   const direction = Math.abs(diff) < 0.1 ? "基本持平" : diff > 0 ? "上升" : "下降";
   const amount = Math.abs(diff) < 0.1 ? "" : ` ${Math.abs(diff)}${suffix}`;
   const pressure = Math.abs(diff) < 0.1 ? "整体状态延续上一条记录" : diff > 0 === higherIsMore ? "该变化让这个指标的压力解释更强" : "该变化让这个指标的压力解释减弱";
-  return `新增这一天后，较上一条${direction}${amount}。${pressure}。${interpretation}`;
+  return `新增这一天后，较上一条${direction}${amount}，${pressure}。${firstSentence(interpretation)}`;
+}
+
+function firstSentence(text) {
+  return String(text).split(/[。.!?]/).filter(Boolean)[0] + "。";
 }
 
 function valueText(value, suffix, digits = 1) {
@@ -690,6 +746,7 @@ function prefillForm(record) {
     const input = el.entryForm.elements[key];
     if (input && value !== null && value !== undefined) input.value = key === "fastingHours" ? round(value, 1) : value;
   });
+  if (el.entryForm.elements.date) el.entryForm.elements.date.value = toIsoDate(new Date());
 }
 
 el.entryForm.addEventListener("submit", (event) => {
@@ -709,6 +766,7 @@ el.entryForm.addEventListener("submit", (event) => {
 
 document.querySelector("#clearForm").addEventListener("click", () => {
   el.entryForm.reset();
+  if (el.entryForm.elements.date) el.entryForm.elements.date.value = toIsoDate(new Date());
 });
 
 el.toggleHistory.addEventListener("click", () => {
